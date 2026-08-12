@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Wallet, Copy, ExternalLink, Zap, RefreshCw, ShieldCheck, Activity } from 'lucide-react';
 import { cn } from '../../../lib/utils';
+import { supabase } from '../../../database/supabase';
 import { algoClient } from '../../../services/algoClient';
 
 export const ProtocolDashboard = () => {
@@ -11,11 +12,23 @@ export const ProtocolDashboard = () => {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    // Check if wallet exists in local storage
-    const saved = localStorage.getItem('x402_wallet');
-    if (saved) {
-      setWallet(JSON.parse(saved));
-    }
+    const fetchWallet = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('user_wallets')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+        
+      if (data) {
+        // Fetch latest balance
+        const balance = await algoClient.getBalance(data.address).catch(() => 0);
+        setWallet({ ...data, balanceAlgo: balance });
+      }
+    };
+    fetchWallet();
   }, []);
 
   const generateWallet = async () => {
@@ -24,15 +37,28 @@ export const ProtocolDashboard = () => {
     try {
       // Assuming backend runs on 3000 as per default Next.js
       const backendUrl = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3000';
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
       const response = await fetch(`${backendUrl}/api/x402/demo-wallet`);
-      
       if (!response.ok) throw new Error('Failed to generate wallet');
       
       const data = await response.json();
       if (data.error) throw new Error(data.error);
 
-      setWallet(data);
-      localStorage.setItem('x402_wallet', JSON.stringify(data));
+      // Save to Supabase
+      const { error: insertError } = await supabase
+        .from('user_wallets')
+        .insert({
+          user_id: user.id,
+          address: data.address,
+          mnemonic: data.mnemonic,
+          secret_key: data.secretKey
+        });
+
+      if (insertError) throw new Error('Failed to save wallet securely');
+
+      setWallet({ ...data, balanceAlgo: 10.0 }); // Demo balance fallback or wait for refresh
     } catch (err: any) {
       setError(err.message || 'Network error');
     } finally {
@@ -47,7 +73,6 @@ export const ProtocolDashboard = () => {
       const balance = await algoClient.getBalance(wallet.address);
       const updatedWallet = { ...wallet, balanceAlgo: balance };
       setWallet(updatedWallet);
-      localStorage.setItem('x402_wallet', JSON.stringify(updatedWallet));
     } catch (err: any) {
       console.error('Failed to refresh balance:', err);
     } finally {
@@ -62,7 +87,7 @@ export const ProtocolDashboard = () => {
   };
 
   const clearWallet = () => {
-    localStorage.removeItem('x402_wallet');
+    // Only clear local state, wallet remains in DB
     setWallet(null);
   };
 

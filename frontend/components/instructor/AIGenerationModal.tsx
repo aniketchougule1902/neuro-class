@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, X, BrainCircuit, Zap, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { algoClient } from '../../services/algoClient';
+import { supabase } from '../../database/supabase';
 
 interface AIGenerationModalProps {
   isOpen: boolean;
@@ -22,16 +23,28 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
   const PRICE_ALGO = 0.10;
 
   useEffect(() => {
-    if (isOpen) {
-      const saved = localStorage.getItem('x402_wallet');
-      if (saved) {
-        setWallet(JSON.parse(saved));
-      } else {
-        setWallet(null);
+    const initModal = async () => {
+      if (isOpen) {
+        setStatus('idle');
+        setErrorMsg('');
+        
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        const { data, error } = await supabase
+          .from('user_wallets')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+          
+        if (data) {
+          setWallet(data);
+        } else {
+          setWallet(null);
+        }
       }
-      setStatus('idle');
-      setErrorMsg('');
-    }
+    };
+    initModal();
   }, [isOpen]);
 
   const handleGenerate = async () => {
