@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Wallet, Copy, ExternalLink, Zap, RefreshCw, ShieldCheck, Activity } from 'lucide-react';
 import { cn } from '../../../lib/utils';
-import { algoClient } from '../../services/algoClient';
+import { algoClient } from '../../../services/algoClient';
 
 export const ProtocolDashboard = () => {
   const [wallet, setWallet] = useState<any>(null);
