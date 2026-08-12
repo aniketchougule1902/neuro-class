@@ -3,10 +3,14 @@ import { StudentSidebar } from './StudentSidebar';
 import { EnrolledClasses } from './EnrolledClasses';
 import { JoinClassWizard } from './JoinClassWizard';
 
+import { ActiveTests } from './ActiveTests';
+import { ExamTaker } from './ExamTaker';
+
 export const StudentDashboard: React.FC = () => {
   const [activeSection, setActiveSection] = useState('classes');
   const [isSidebarHovered, setSidebarHovered] = useState(false);
   const [isJoinWizardOpen, setJoinWizardOpen] = useState(false);
+  const [activeTestId, setActiveTestId] = useState<string | null>(null);
 
   const renderContent = () => {
     switch (activeSection) {
@@ -20,12 +24,7 @@ export const StudentDashboard: React.FC = () => {
           </div>
         );
       case 'tests':
-        return (
-          <div className="p-8">
-            <h2 className="text-3xl font-black mb-4">Active Tests</h2>
-            <p className="text-slate-500">Pending assignments and exams will appear here.</p>
-          </div>
-        );
+        return <ActiveTests onStartTest={(testId) => setActiveTestId(testId)} />;
       default:
         return (
           <div className="flex items-center justify-center h-full text-slate-400 font-bold uppercase tracking-widest text-sm">
@@ -68,6 +67,13 @@ export const StudentDashboard: React.FC = () => {
           setTimeout(() => setActiveSection('classes'), 50);
         }}
       />
+      
+      {activeTestId && (
+        <ExamTaker 
+          testId={activeTestId} 
+          onExit={() => setActiveTestId(null)} 
+        />
+      )}
     </div>
   );
 };
