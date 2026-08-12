@@ -1,4 +1,5 @@
-import algosdk from 'algosdk';
+import algosdkImport from 'algosdk';
+const algosdk: typeof algosdkImport = (algosdkImport as any).default || algosdkImport;
 
 // Algonode Public Free Testnet Node & Indexer Endpoints
 const ALGOD_SERVER = 'https://testnet-api.algonode.cloud';
@@ -98,7 +99,7 @@ export const algorandService = {
           return {
             valid: true,
             txId,
-            sender: pendingInfo.txn?.txn?.sender || 'TESTNET_WALLETS',
+            sender: String(pendingInfo.txn?.txn?.sender || 'TESTNET_WALLETS'),
             amountAlgo: minAmountAlgo,
             message: 'Algorand Testnet On-Chain Pending Transaction Confirmed'
           };

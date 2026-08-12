@@ -42,6 +42,16 @@ export function createExpressApp() {
 
   app.use(express.json({ limit: '50mb' }));
 
+  // Health Check & Root Routes
+  app.get(["/", "/api", "/api/health"], (_req, res) => {
+    res.json({
+      status: "online",
+      service: "NeuroClass AI Backend",
+      version: "1.0.0",
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // AI Question Paper Analysis Route
   app.post("/api/analyze-question-paper", async (req, res) => {
     try {
