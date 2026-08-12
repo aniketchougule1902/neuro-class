@@ -7,9 +7,9 @@ import {
   CheckCircle2, ArrowRight, UserPlus, BrainCircuit,
   Phone, Hash, Mail, ClipboardList, Play, LogOut, Sparkles
 } from 'lucide-react';
-import { supabase } from '../../../database/supabase';
-import { CameraService } from '../../../services/ml/CameraService';
-import { LocalMLService } from '../../../services/ml/LocalMLService';
+import { supabase } from '../../database/supabase';
+import { CameraService } from '../../services/ml/CameraService';
+import { LocalMLService } from '../../services/ml/LocalMLService';
 import ExamPortal from '../exams/ExamPortal';
 import { AssignmentEvaluator } from '../evaluation/AssignmentEvaluator';
 

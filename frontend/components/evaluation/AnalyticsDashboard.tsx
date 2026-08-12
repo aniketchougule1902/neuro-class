@@ -4,7 +4,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
 } from 'recharts';
 import { Microscope, TrendingUp, AlertTriangle, Medal, Filter, Star } from 'lucide-react';
-import { getEvaluations, EvaluationRecord, subscribeToStoreChanges } from '../../../services/evaluationStore';
+import { getEvaluations, EvaluationRecord, subscribeToStoreChanges } from '../../services/evaluationStore';
 
 const COLORS = ['#22c55e', '#3b82f6', '#a855f7', '#f59e0b', '#ef4444'];
 

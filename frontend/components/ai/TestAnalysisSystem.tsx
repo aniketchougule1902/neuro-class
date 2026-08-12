@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Monitor, Users, Clock, ShieldAlert, CheckCircle } from 'lucide-react';
 import { AnimatePresence } from 'motion/react';
-import { LocalMLService } from '../../../services/ml/LocalMLService';
-import { CameraService } from '../../../services/ml/CameraService';
+import { LocalMLService } from '../../services/ml/LocalMLService';
+import { CameraService } from '../../services/ml/CameraService';
 
 interface TestAnalysisProps {
   testType: 'online' | 'offline';

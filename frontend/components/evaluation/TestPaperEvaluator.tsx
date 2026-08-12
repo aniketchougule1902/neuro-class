@@ -3,9 +3,9 @@ import {
   FileText, UploadCloud, Copy, Sparkles, CheckCircle2, AlertCircle, 
   ArrowRight, FileSpreadsheet, ListFilter, RotateCcw, Play, Check, HelpCircle, X, Plus, BookOpen, Layers, Award, User, Hash, HelpCircle as QuestionIcon, ChevronRight
 } from 'lucide-react';
-import { getEvaluations, saveEvaluation, EvaluationRecord, subscribeToStoreChanges } from '../../../services/evaluationStore';
+import { getEvaluations, saveEvaluation, EvaluationRecord, subscribeToStoreChanges } from '../../services/evaluationStore';
 import { getApiUrl } from '../../config/apiConfig';
-import { downloadAsExcel } from '../../../services/excelGenerator';
+import { downloadAsExcel } from '../../services/excelGenerator';
 
 interface AnalyzedQuestion {
   questionNumber: string;

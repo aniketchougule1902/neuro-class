@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { LocalMLService } from '../../../services/ml/LocalMLService';
-import { CameraService } from '../../../services/ml/CameraService';
+import { LocalMLService } from '../../services/ml/LocalMLService';
+import { CameraService } from '../../services/ml/CameraService';
 import { 
   Clock, 
   Shield, 
@@ -22,7 +22,7 @@ import {
   Terminal
 } from 'lucide-react';
 import { Test, Question, QuestionType, LayoutModuleType } from '../../types';
-import { supabase } from '../../../database/supabase';
+import { supabase } from '../../database/supabase';
 
 interface ExamPortalProps {
   test: Test;

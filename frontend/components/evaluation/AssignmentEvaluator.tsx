@@ -3,7 +3,7 @@ import {
   FileText, Sparkles, Star, AlertTriangle, CheckCircle, HelpCircle, 
   ArrowRight, Download, UploadCloud, Check, ShieldAlert, ListFilter
 } from 'lucide-react';
-import { getEvaluations, saveEvaluation, EvaluationRecord, subscribeToStoreChanges } from '../../../services/evaluationStore';
+import { getEvaluations, saveEvaluation, EvaluationRecord, subscribeToStoreChanges } from '../../services/evaluationStore';
 import { getApiUrl } from '../../config/apiConfig';
 
 export const AssignmentEvaluator: React.FC = () => {

@@ -1,12 +1,12 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Camera, Users, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { LocalMLService } from '../../../services/ml/LocalMLService';
-import { CameraService } from '../../../services/ml/CameraService';
-import { EmailService } from '../../../services/ml/EmailService';
-import { supabase } from '../../../database/supabase';
+import { LocalMLService } from '../../services/ml/LocalMLService';
+import { CameraService } from '../../services/ml/CameraService';
+import { EmailService } from '../../services/ml/EmailService';
+import { supabase } from '../../database/supabase';
 import * as faceapi from '@vladmandic/face-api';
-import { logEvent } from '../../../database/analytics';
+import { logEvent } from '../../database/analytics';
 
 interface AttendanceSystemProps {
   classId: string;

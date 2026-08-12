@@ -1,9 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Shield, Activity, Play, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { LocalMLService } from '../../../services/ml/LocalMLService';
-import { CameraService } from '../../../services/ml/CameraService';
-import { logMalpracticeDetected } from '../../../database/analytics';
+import { LocalMLService } from '../../services/ml/LocalMLService';
+import { CameraService } from '../../services/ml/CameraService';
+import { logMalpracticeDetected } from '../../database/analytics';
 
 export const ProctoringSystem: React.FC = () => {
   useEffect(() => {

@@ -29,8 +29,8 @@ import { twMerge } from 'tailwind-merge';
 
 import { useTheme } from '../../context/ThemeContext';
 
-import { supabase, isSupabaseConfigured } from '../../../database/supabase';
-import { logClassroomCreated } from '../../../database/analytics';
+import { supabase, isSupabaseConfigured } from '../../database/supabase';
+import { logClassroomCreated } from '../../database/analytics';
 import { Test, Theme, LayoutModuleType } from '../../types';
 import BuilderTab from '../tabs/BuilderTab';
 import DesignerTab from '../tabs/DesignerTab';

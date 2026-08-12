@@ -16,9 +16,9 @@ import { StudentPortal } from './components/classroom/StudentPortal';
 import { AIModuleDashboard } from './components/ai/AIModuleDashboard';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertCircle } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '../database/supabase';
-import { authService, AppUser } from '../auth';
-import { logPageView } from '../database/analytics';
+import { supabase, isSupabaseConfigured } from './database/supabase';
+import { authService, AppUser } from '../backend/auth';
+import { logPageView } from './database/analytics';
 
 const MissingConfigMessage = ({ onBack }: { onBack: () => void }) => (
   <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-black px-4 py-20 overflow-y-auto">
