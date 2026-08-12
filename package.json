@@ -23,6 +23,7 @@
     "@tensorflow/tfjs": "^4.22.0",
     "@vitejs/plugin-react": "^5.0.4",
     "@vladmandic/face-api": "^1.7.15",
+    "algosdk": "^3.6.0",
     "clsx": "^2.1.1",
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",

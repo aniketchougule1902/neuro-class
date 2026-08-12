@@ -16,6 +16,7 @@ import {
 import { TestPaperEvaluator } from '../evaluation/TestPaperEvaluator';
 import { AssignmentEvaluator } from '../evaluation/AssignmentEvaluator';
 import { AnalyticsDashboard } from '../evaluation/AnalyticsDashboard';
+import { AITestGeneratorModal } from './AITestGeneratorModal';
 
 
 import { 
@@ -80,6 +81,7 @@ export const ClassroomView: React.FC<ClassroomViewProps> = ({ user, onClose, onO
   const [refreshKey, setRefreshKey] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
   const [showTestDesigner, setShowTestDesigner] = useState(false);
+  const [showAiTestModal, setShowAiTestModal] = useState(false);
   const [currentTestToEdit, setCurrentTestToEdit] = useState<Test | undefined>(undefined);
 
   const triggerRefresh = () => setRefreshKey(prev => prev + 1);
@@ -268,6 +270,12 @@ export const ClassroomView: React.FC<ClassroomViewProps> = ({ user, onClose, onO
             className="px-5 py-2 rounded-full bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold uppercase tracking-widest transition-all hover:bg-indigo-600/20 border border-indigo-500/20 flex items-center gap-2"
           >
             <BrainCircuit size={14} /> AI Core
+          </button>
+          <button 
+            onClick={() => setShowAiTestModal(true)}
+            className="px-5 py-2 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 text-[10px] font-bold uppercase tracking-widest transition-all border border-amber-500/30 flex items-center gap-2"
+          >
+            <Zap size={14} /> AI Test Generator (x402)
           </button>
           <button 
             onClick={() => setCreateModalOpen(true)}
@@ -471,6 +479,14 @@ export const ClassroomView: React.FC<ClassroomViewProps> = ({ user, onClose, onO
           />
         )}
       </AnimatePresence>
+
+      <AITestGeneratorModal
+        isOpen={showAiTestModal}
+        onClose={() => setShowAiTestModal(false)}
+        onTestGenerated={(generatedTest) => {
+          showToast(`AI Test Generated: "${generatedTest.title}" (${generatedTest.questions?.length || 0} questions)`, 'success');
+        }}
+      />
     </div>
   );
 };
@@ -2224,8 +2240,8 @@ const ReportsView: React.FC<{ user: any }> = ({ user }) => {
                       )}
                   </div>
                </GlassCard>
-            </div>
         </div>
+     </div>
     </div>
     );
 };

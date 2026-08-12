@@ -4,6 +4,9 @@ import path from "path";
 import dotenv from "dotenv";
 import cors from "cors";
 import { GoogleGenAI } from "@google/genai";
+import { requireX402Payment } from "./middleware/x402Middleware";
+import { algorandService, NEUROCLASS_TREASURY_ADDRESS } from "./services/algorandService";
+import { aiGenerationService } from "./services/aiGenerationService";
 
 dotenv.config();
 
@@ -349,6 +352,61 @@ export async function startBackendServer() {
     }
   });
 
+
+  // =======================================================
+  // x402 PROTOCOL & ALGORAND SETTLEMENT ROUTES
+  // =======================================================
+
+  // 1. Generate Algorand Testnet Wallet for Demo Settlement
+  app.get("/api/x402/demo-wallet", async (_req, res) => {
+    try {
+      const wallet = algorandService.generateTestnetWallet();
+      const balance = await algorandService.getBalance(wallet.address);
+      res.json({
+        address: wallet.address,
+        mnemonic: wallet.mnemonic,
+        balanceAlgo: balance,
+        treasuryAddress: NEUROCLASS_TREASURY_ADDRESS
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to generate Algorand wallet" });
+    }
+  });
+
+  // 2. Verify x402 Algorand Settlement Transaction
+  app.post("/api/x402/verify", async (req, res) => {
+    try {
+      const { txId, priceAlgo = 0.10 } = req.body;
+      const result = await algorandService.verifyPaymentTx(txId, priceAlgo);
+      if (result.valid) {
+        res.json({ status: "settled", ...result });
+      } else {
+        res.status(400).json({ status: "failed", ...result });
+      }
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Payment verification error" });
+    }
+  });
+
+  // 3. AI Test Paper Generation (Protected by x402 - 0.10 ALGO)
+  app.post("/api/ai/generate-test", requireX402Payment(0.10), async (req, res) => {
+    try {
+      const test = await aiGenerationService.generateTest(req.body);
+      res.json({ success: true, test });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "AI Test Generation failed" });
+    }
+  });
+
+  // 4. AI Assignment Drafting (Protected by x402 - 0.05 ALGO)
+  app.post("/api/ai/generate-assignment", requireX402Payment(0.05), async (req, res) => {
+    try {
+      const assignment = await aiGenerationService.generateAssignment(req.body);
+      res.json({ success: true, assignment });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "AI Assignment Generation failed" });
+    }
+  });
 
   // Vite Middleware
   if (process.env.NODE_ENV !== "production") {
