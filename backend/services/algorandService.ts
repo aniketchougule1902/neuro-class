@@ -10,7 +10,7 @@ export const algodClient = new algosdk.Algodv2('', ALGOD_SERVER, PORT);
 export const indexerClient = new algosdk.Indexer('', INDEXER_SERVER, PORT);
 
 // Default platform receiver address for x402 AI micro-payments
-export const NEUROCLASS_TREASURY_ADDRESS = 'O32S3N676B2NFXP3L3R6V3T3P3E3C3L3A3S3S3P3A3Y3M3E3N3T3S3E3T3T';
+export const NEUROCLASS_TREASURY_ADDRESS = 'EE67FUFHAJ47BKZKS23LD4ZEIPXILAT7N2DNWXK3T4N4QIIIGZZTFZUYOA';
 
 export interface PaymentVerificationResult {
   valid: boolean;
