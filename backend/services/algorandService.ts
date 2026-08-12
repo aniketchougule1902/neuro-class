@@ -10,7 +10,8 @@ export const algodClient = new algosdk.Algodv2('', ALGOD_SERVER, PORT);
 export const indexerClient = new algosdk.Indexer('', INDEXER_SERVER, PORT);
 
 // Default platform receiver address for x402 AI micro-payments
-export const NEUROCLASS_TREASURY_ADDRESS = 'EE67FUFHAJ47BKZKS23LD4ZEIPXILAT7N2DNWXK3T4N4QIIIGZZTFZUYOA';
+export const NEUROCLASS_TREASURY_ADDRESS = 'ECQ2Y3ZDYKG65YV2VI37AXDK5C26NVVUFN4CU2UFKMF2CHS25T2N53YPCI';
+export const TREASURY_MNEMONIC = 'drink ten canvas slow monster follow heavy outer tuna arm scatter salmon wet top unhappy icon shock festival rule ladder blur crisp remember abandon impose';
 
 export interface PaymentVerificationResult {
   valid: boolean;
@@ -119,6 +120,35 @@ export const algorandService = {
       }
 
       return { valid: false, message: `Algorand transaction verification failed: ${err.message || err}` };
+    }
+  },
+
+  /**
+   * Refund an Algorand Payment
+   */
+  async issueRefund(receiverAddress: string, amountAlgo: number): Promise<string> {
+    try {
+      const account = algosdk.mnemonicToSecretKey(TREASURY_MNEMONIC);
+      const suggestedParams = await algodClient.getTransactionParams().do();
+      
+      const amount = Math.floor(amountAlgo * 1000000); 
+
+      const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+        sender: account.addr,
+        receiver: receiverAddress,
+        amount,
+        suggestedParams,
+        note: new TextEncoder().encode("NeuroClass AI Refund (Execution Failed)")
+      });
+
+      const signedTxn = txn.signTxn(account.sk);
+      const { txId } = await algodClient.sendRawTransaction(signedTxn).do();
+      
+      console.log(`Refunded ${amountAlgo} ALGO to ${receiverAddress}. TxID: ${txId}`);
+      return txId;
+    } catch (err: any) {
+      console.error('Algorand Refund Error:', err);
+      throw new Error(`Refund failed: ${err.message}`);
     }
   }
 };

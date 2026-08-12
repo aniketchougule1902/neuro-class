@@ -4,7 +4,7 @@ const ALGOD_TOKEN = '';
 const ALGOD_SERVER = 'https://testnet-api.algonode.cloud';
 const ALGOD_PORT = 443;
 
-export const NEUROCLASS_TREASURY_ADDRESS = 'EE67FUFHAJ47BKZKS23LD4ZEIPXILAT7N2DNWXK3T4N4QIIIGZZTFZUYOA'; // Testnet Treasury
+export const NEUROCLASS_TREASURY_ADDRESS = 'ECQ2Y3ZDYKG65YV2VI37AXDK5C26NVVUFN4CU2UFKMF2CHS25T2N53YPCI'; // Testnet Treasury
 
 let algodClient: algosdk.Algodv2 | null = null;
 

@@ -7,6 +7,7 @@ export interface X402PaymentResult {
   errorResponse?: NextResponse;
   payment?: {
     txId: string;
+    sender: string;
     amountAlgo: number;
     verified: boolean;
   };
@@ -76,6 +77,7 @@ export async function validateX402Payment(req: NextRequest, priceAlgo: number = 
     valid: true,
     payment: {
       txId,
+      sender: verification.sender || '',
       amountAlgo: verification.amountAlgo ?? priceAlgo,
       verified: true
     }
