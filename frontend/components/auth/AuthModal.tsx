@@ -38,8 +38,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSelectR
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  if (!isOpen) return null;
-
   const handleRoleSelect = (selectedRole: 'teacher' | 'student') => {
     setRole(selectedRole);
     setStep(2);
@@ -95,15 +93,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSelectR
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-        {/* Backdrop */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={resetState}
-          className="absolute inset-0 bg-black/60 backdrop-blur-md"
-        />
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={resetState}
+            className="absolute inset-0 bg-black/60 backdrop-blur-md"
+          />
 
         {/* Modal */}
         <motion.div
@@ -329,7 +328,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSelectR
             </AnimatePresence>
           </div>
         </motion.div>
-      </div>
+        </div>
+      )}
     </AnimatePresence>
   );
 };
