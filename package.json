@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "npx vite build && npx esbuild backend/server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=build/server.cjs",
-    "start": "node build/server.cjs",
+    "build": "npx vite build && npx esbuild backend/server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "start": "node dist/server.cjs",
     "preview": "vite preview",
-    "clean": "rm -rf build",
+    "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
