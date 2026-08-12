@@ -123,7 +123,10 @@ function App() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <Hero onLaunch={() => setActiveTab('classroom')} />
+                <Hero onLaunch={() => {
+                  if (!user) setIsAuthModalOpen(true);
+                  else setActiveTab(userRole === 'student' ? 'student' : 'classroom');
+                }} />
                 <Features />
                 <Process />
                 <DashboardPreview />
