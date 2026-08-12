@@ -5,7 +5,6 @@ import { LocalMLService } from '../../../services/ml/LocalMLService';
 import { CameraService } from '../../../services/ml/CameraService';
 import { EmailService } from '../../../services/ml/EmailService';
 import { supabase } from '../../../database/supabase';
-import { supabase } from '../../../database/supabase';
 import * as faceapi from '@vladmandic/face-api';
 import { logEvent } from '../../../database/analytics';
 

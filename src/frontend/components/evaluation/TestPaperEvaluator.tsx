@@ -230,7 +230,7 @@ export const TestPaperEvaluator: React.FC = () => {
       const result = await response.json();
       
       // Capture evaluations locally and sync
-      const savedRecord = saveEvaluation({
+      const savedRecord = await saveEvaluation({
         type: 'test-paper',
         studentName,
         rollNumber,

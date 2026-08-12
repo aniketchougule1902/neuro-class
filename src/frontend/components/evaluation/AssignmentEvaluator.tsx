@@ -3,11 +3,11 @@ import {
   FileText, Sparkles, Star, AlertTriangle, CheckCircle, HelpCircle, 
   ArrowRight, Download, UploadCloud, Check, ShieldAlert, ListFilter
 } from 'lucide-react';
-import { getEvaluations, saveEvaluation, EvaluationRecord, getKnowledgeStore, KnowledgeAsset, subscribeToStoreChanges } from '../../../services/evaluationStore';
+import { getEvaluations, saveEvaluation, EvaluationRecord, subscribeToStoreChanges } from '../../../services/evaluationStore';
 
 export const AssignmentEvaluator: React.FC = () => {
   const [evalList, setEvalList] = useState<EvaluationRecord[]>([]);
-  const [knowledge, setKnowledge] = useState<KnowledgeAsset[]>([]);
+
   const [selectedEval, setSelectedEval] = useState<EvaluationRecord | null>(null);
   
   // Form State
@@ -37,21 +37,12 @@ export const AssignmentEvaluator: React.FC = () => {
   useEffect(() => {
     const load = () => {
       setEvalList(getEvaluations().filter(e => e.type === 'assignment'));
-      setKnowledge(getKnowledgeStore());
     };
     load();
     return subscribeToStoreChanges(load);
   }, []);
 
-  const handleSelectRubric = (assetId: string) => {
-    if (!assetId) return;
-    const asset = knowledge.find(k => k.id === assetId);
-    if (asset) {
-      setAssignmentDesc(asset.title);
-      // Parse criteria from content if applicable or keep general
-      // For general reliability, keep custom structure and set details
-    }
-  };
+
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -103,7 +94,7 @@ export const AssignmentEvaluator: React.FC = () => {
       const calculatedTotalPossible = rubricStructure.reduce((sum, item) => sum + item.maxMarks, 0);
       const calculatedPercentage = Math.round((calculatedMarksObtained / calculatedTotalPossible) * 100);
 
-      const savedRecord = saveEvaluation({
+      const savedRecord = await saveEvaluation({
         type: 'assignment',
         studentName,
         rollNumber,
@@ -262,16 +253,6 @@ export const AssignmentEvaluator: React.FC = () => {
               <div className="space-y-3 p-5 rounded-2xl border border-black/5 dark:border-white/5 bg-slate-50/50 dark:bg-black/10">
                 <div className="flex justify-between items-center">
                   <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Rubric Weighted Parameters</span>
-                  <select 
-                    onChange={e => handleSelectRubric(e.target.value)}
-                    defaultValue=""
-                    className="text-[9px] uppercase font-bold text-blue-500 bg-transparent border-none outline-none cursor-pointer"
-                  >
-                    <option value="" disabled>Load reference (RAG)</option>
-                    {knowledge.filter(k => k.type === 'rubric').map(k => (
-                      <option key={k.id} value={k.id}>{k.title}</option>
-                    ))}
-                  </select>
                 </div>
                 
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">

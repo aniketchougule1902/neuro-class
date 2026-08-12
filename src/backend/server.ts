@@ -349,40 +349,6 @@ export async function startBackendServer() {
     }
   });
 
-  // AI Chat Tutor & Learning Advisor Route
-  app.post("/api/chat", async (req, res) => {
-    try {
-      const { message, history = [], systemInstruction = "You are the NeuroClass AI Learning Advisor. Help students and instructors master educational topics, design perfect Rubrics, and analyze marking gaps based on evaluations." } = req.body;
-
-      if (!message) {
-        return res.status(400).json({ error: "Missing prompt or query message." });
-      }
-
-      const ai = getAIClient();
-      
-      const contents = [
-        ...history.map((msg: any) => ({
-          role: msg.role === "assistant" ? "model" : "user",
-          parts: [{ text: msg.content }]
-        })),
-        { role: "user", parts: [{ text: message }] }
-      ];
-
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents,
-        config: {
-          systemInstruction,
-          temperature: 0.7
-        }
-      });
-
-      res.json({ text: response.text || "" });
-    } catch (err: any) {
-      console.error("AI Chat Advisor Route Error:", err);
-      res.status(500).json({ error: err.message || "AI response failed to compile." });
-    }
-  });
 
   // Vite Middleware
   if (process.env.NODE_ENV !== "production") {

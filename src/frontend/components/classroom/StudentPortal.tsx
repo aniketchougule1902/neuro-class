@@ -8,12 +8,11 @@ import {
   Phone, Hash, Mail, ClipboardList, Play, LogOut, Sparkles
 } from 'lucide-react';
 import { supabase } from '../../../database/supabase';
-import { supabase } from '../../../database/supabase';
 import { CameraService } from '../../../services/ml/CameraService';
 import { LocalMLService } from '../../../services/ml/LocalMLService';
 import ExamPortal from '../exams/ExamPortal';
 import { AssignmentEvaluator } from '../evaluation/AssignmentEvaluator';
-import { AIChatAdvisor } from '../evaluation/AIChatAdvisor';
+
 import { ClassroomDetailViewStudent } from './ClassroomDetailViewStudent';
 import { twMerge } from 'tailwind-merge';
 import { clsx, type ClassValue } from 'clsx';
@@ -731,17 +730,7 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({ user, onClose }) =
           </div>
         )}
       </AnimatePresence>
-      {/* Student AI Learning Advisor Chat */}
-      <AIChatAdvisor 
-        themeColor="blue"
-        systemContext="You are the student's NeuroClass AI Learning Counselor. Be warm, supportive, and extremely clear. Help them understand complex concepts (like Quantum Physics or calculus), detail standard spelling bounds, and suggest actionable revision strategies."
-        defaultSuggestions={[
-          "Can you explain boundary conditions in simple terms?",
-          "How can I improve my homework structure next time?",
-          "What is the difference between A vs A+ general grades?",
-          "Give me an active recall study schedule for physics."
-        ]}
-      />
+
     </div>
   );
 };

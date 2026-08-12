@@ -1,5 +1,5 @@
 import React from 'react';
-import { AIChatAdvisor } from '../evaluation/AIChatAdvisor';
+
 import { 
   BrainCircuit, X, Activity, Layers, CornerDownRight 
 } from 'lucide-react';
@@ -77,16 +77,7 @@ export const AIModuleDashboard: React.FC<{ onClose: () => void }> = ({ onClose }
         <p className="text-[8px] font-bold uppercase tracking-widest opacity-40">© 2026 NeuroClass Decentralized Grader System</p>
       </footer>
 
-      {/* Embedded Sparkles AI Advisor */}
-      <AIChatAdvisor 
-        themeColor="blue"
-        systemContext="You are the expert NeuroClass AI Mentor and Grading Auditor. Assist teachers in understanding our new decentralized design, setting up rubrics, and mapping OCR evaluation parameters."
-        defaultSuggestions={[
-          "Why did we migrate AI tools into individual classrooms?",
-          "How do I set up a rubric for my localized class now?",
-          "Explain the benefit of context constraints on accuracy."
-        ]}
-      />
+
     </div>
   );
 };

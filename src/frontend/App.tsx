@@ -54,8 +54,8 @@ function App() {
     
     const unsubscribe = authService.subscribeToAuthState(async (currentUser) => {
       setUser(currentUser);
-      if (currentUser && 'uid' in currentUser) {
-        const role = await authService.getUserRole(currentUser.uid);
+      if (currentUser && 'id' in currentUser) {
+        const role = await authService.getUserRole(currentUser.id);
         setUserRole(role);
       } else {
         setUserRole(null);
@@ -69,8 +69,8 @@ function App() {
   const handleLogin = async () => {
     try {
       setAuthLoading(true);
-      const fbUser = await authService.loginWithGoogleOAuth();
-      const role = await authService.getUserRole(fbUser.uid);
+      const authUser = await authService.loginWithGoogleOAuth();
+      const role = await authService.getUserRole(authUser.id);
       setUserRole(role);
     } catch (e) {
       console.error('Google OAuth Sign-In Error:', e);
