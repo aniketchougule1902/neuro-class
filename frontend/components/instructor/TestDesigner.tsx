@@ -37,7 +37,7 @@ export const TestDesigner = () => {
       const { data } = await supabase
         .from('classrooms')
         .select('*')
-        .eq('instructor_id', user.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (data) {

@@ -37,7 +37,7 @@ CREATE POLICY "Instructors manage tests for their classrooms" ON public.tests
         EXISTS (
             SELECT 1 FROM public.classrooms c 
             WHERE c.id = tests.classroom_id 
-            AND c.instructor_id = auth.uid()
+            AND c.user_id = auth.uid()
         )
     );
 
@@ -72,6 +72,6 @@ CREATE POLICY "Instructors view test results" ON public.test_results
             SELECT 1 FROM public.tests t
             JOIN public.classrooms c ON t.classroom_id = c.id
             WHERE t.id = test_results.test_id
-            AND c.instructor_id = auth.uid()
+            AND c.user_id = auth.uid()
         )
     );
