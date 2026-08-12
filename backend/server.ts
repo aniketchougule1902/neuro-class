@@ -7,8 +7,7 @@ import { requireX402Payment } from "./middleware/x402Middleware";
 import { algorandService, NEUROCLASS_TREASURY_ADDRESS } from "./services/algorandService";
 import { aiGenerationService } from "./services/aiGenerationService";
 
-// Load .env from backend directory or project root
-dotenv.config({ path: path.resolve(__dirname, ".env") });
+// Load .env configuration
 dotenv.config();
 
 let aiClient: GoogleGenAI | null = null;

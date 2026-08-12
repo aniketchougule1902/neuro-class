@@ -1,6 +1,6 @@
 import ReactGA from "react-ga4";
 
-const GA_MEASUREMENT_ID = (import.meta as any).env.VITE_GA_MEASUREMENT_ID;
+const GA_MEASUREMENT_ID = process.env.GA_MEASUREMENT_ID || process.env.VITE_GA_MEASUREMENT_ID;
 
 export const initGA = () => {
   if (GA_MEASUREMENT_ID) {
