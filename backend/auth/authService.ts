@@ -7,7 +7,11 @@ export const authService = {
   /**
    * Initiate Google OAuth Sign In flow with popup via Supabase
    */
-  async loginWithGoogleOAuth(): Promise<AppUser> {
+  async loginWithGoogleOAuth(requestedRole?: 'teacher' | 'student'): Promise<AppUser> {
+    if (requestedRole) {
+      localStorage.setItem('neuroclass_auth_intent', requestedRole);
+    }
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -29,14 +33,18 @@ export const authService = {
       const { data: userDoc } = await supabase.from('users').select('*').eq('uid', userRef.id).single();
       
       if (!userDoc) {
+        const intentRole = localStorage.getItem('neuroclass_auth_intent') || 'teacher';
+        
         await supabase.from('users').insert({
           uid: userRef.id,
           email: userRef.email,
           displayName: userRef.user_metadata?.full_name || '',
           photoURL: userRef.user_metadata?.avatar_url || '',
-          role: 'teacher',
+          role: intentRole,
           createdAt: new Date().toISOString()
         });
+        
+        localStorage.removeItem('neuroclass_auth_intent');
       }
       return userRef;
     }

@@ -85,18 +85,33 @@ const Navbar: React.FC<NavbarProps> = ({
               >
                 {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
               </motion.button>
-              <motion.button 
-                whileHover={{ 
-                  scale: 1.05, 
-                  y: -2,
-                  boxShadow: "0 0 20px rgba(59,130,246,0.3)"
-                }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleLaunch}
-                className="px-8 py-2.5 rounded-full border border-blue-500/30 dark:border-white/20 text-[11px] font-bold uppercase tracking-[0.2em] bg-blue-600 dark:bg-transparent text-white hover:bg-blue-700 dark:hover:bg-white dark:hover:text-black transition-all duration-500"
-              >
-                Launch Dashboard
-              </motion.button>
+              {user ? (
+                <motion.button 
+                  whileHover={{ 
+                    scale: 1.05, 
+                    y: -2,
+                    boxShadow: "0 0 20px rgba(59,130,246,0.3)"
+                  }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleLaunch}
+                  className="px-8 py-2.5 rounded-full border border-blue-500/30 dark:border-white/20 text-[11px] font-bold uppercase tracking-[0.2em] bg-blue-600 dark:bg-transparent text-white hover:bg-blue-700 dark:hover:bg-white dark:hover:text-black transition-all duration-500"
+                >
+                  Go to Portal
+                </motion.button>
+              ) : (
+                <motion.button 
+                  whileHover={{ 
+                    scale: 1.05, 
+                    y: -2,
+                    boxShadow: "0 0 20px rgba(168,85,247,0.3)"
+                  }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={onLogin}
+                  className="px-8 py-2.5 rounded-full border border-purple-500/30 dark:border-white/20 text-[11px] font-bold uppercase tracking-[0.2em] bg-purple-600 dark:bg-transparent text-white hover:bg-purple-700 dark:hover:bg-white dark:hover:text-black transition-all duration-500"
+                >
+                  Sign In
+                </motion.button>
+              )}
             </div>
           </div>
 

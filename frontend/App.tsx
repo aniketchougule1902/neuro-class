@@ -16,6 +16,7 @@ import { StudentPortal } from './components/classroom/StudentPortal';
 import { AIModuleDashboard } from './components/ai/AIModuleDashboard';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertCircle } from 'lucide-react';
+import { AuthModal } from './components/auth/AuthModal';
 import { supabase, isSupabaseConfigured } from './database/supabase';
 import { authService, AppUser } from '../backend/auth';
 import { logPageView } from './database/analytics';
@@ -48,6 +49,7 @@ function App() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [userRole, setUserRole] = useState<'teacher' | 'student' | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   useEffect(() => {
     logPageView(window.location.pathname);
@@ -66,12 +68,14 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  const handleLogin = async () => {
+  const handleLogin = async (role: 'teacher' | 'student') => {
     try {
+      setIsAuthModalOpen(false);
       setAuthLoading(true);
-      const authUser = await authService.loginWithGoogleOAuth();
-      const role = await authService.getUserRole(authUser.id);
-      setUserRole(role);
+      const authUser = await authService.loginWithGoogleOAuth(role);
+      const newRole = await authService.getUserRole(authUser.id);
+      setUserRole(newRole);
+      setActiveTab(newRole === 'student' ? 'student' : 'classroom');
     } catch (e) {
       console.error('Google OAuth Sign-In Error:', e);
       alert('Sign in failed. Please try again.');
@@ -101,7 +105,11 @@ function App() {
           setActiveTab={setActiveTab} 
           setShowAIModule={setShowAIModule}
           user={user}
-          onLogin={handleLogin}
+          onLogin={() => setIsAuthModalOpen(true)}
+          onLaunch={() => {
+            if (!user) setIsAuthModalOpen(true);
+            else setActiveTab(userRole === 'student' ? 'student' : 'classroom');
+          }}
           onLogout={handleLogout}
         />
 
@@ -163,6 +171,12 @@ function App() {
             <AIModuleDashboard onClose={() => setShowAIModule(false)} />
           )}
         </AnimatePresence>
+        
+        <AuthModal 
+          isOpen={isAuthModalOpen} 
+          onClose={() => setIsAuthModalOpen(false)} 
+          onSelectRole={handleLogin} 
+        />
       </div>
     </ThemeProvider>
   );
