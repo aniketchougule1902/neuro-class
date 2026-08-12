@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Sparkles, Save, Clock, Target, FileText, X, BrainCircuit, AlertCircle } from 'lucide-react';
 import { supabase } from '../../database/supabase';
 import { cn } from '../../lib/utils';
+import { AIGenerationModal } from './AIGenerationModal';
 
 interface Question {
   id: string;
@@ -24,6 +25,7 @@ export const TestDesigner = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   useEffect(() => {
     fetchClassrooms();
@@ -115,9 +117,9 @@ export const TestDesigner = () => {
 
         <div className="flex gap-4 w-full md:w-auto">
           <button 
-            disabled
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-2xl border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold uppercase tracking-widest text-xs opacity-50 cursor-not-allowed hover:opacity-50"
-            title="Coming Soon in Phase 7"
+            onClick={() => setIsAiModalOpen(true)}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-2xl border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold uppercase tracking-widest text-xs hover:bg-blue-500/20 transition-all"
+            title="Generate test with AI"
           >
             <Sparkles size={16} /> Auto-Generate with AI
           </button>
@@ -298,7 +300,32 @@ export const TestDesigner = () => {
             </AnimatePresence>
           </div>
         </div>
+        </div>
       </div>
+
+      <AIGenerationModal 
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        onGenerate={(testData) => {
+          setTestTitle(testData.title || '');
+          setTestDescription(testData.instructions || '');
+          setDuration(testData.durationMins || 60);
+          
+          if (testData.questions && Array.isArray(testData.questions)) {
+            const mappedQuestions = testData.questions.map((q: any) => ({
+              id: crypto.randomUUID(),
+              text: q.text,
+              type: q.type === 'mcq' ? 'mcq' : 'subjective',
+              options: q.options ? q.options : ['', '', '', ''],
+              correctAnswer: q.options && q.correctAnswer 
+                ? q.options.indexOf(q.correctAnswer).toString() 
+                : '0',
+              marks: q.marks || 10
+            }));
+            setQuestions(mappedQuestions);
+          }
+        }}
+      />
     </div>
   );
 };

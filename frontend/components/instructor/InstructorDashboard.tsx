@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { ClassroomList } from './ClassroomList';
 import { ClassroomDetail } from './ClassroomDetail';
+import { ProtocolDashboard } from './x402/ProtocolDashboard';
 import { TestDesigner } from './TestDesigner';
 
 export const InstructorDashboard: React.FC = () => {
@@ -30,12 +31,7 @@ export const InstructorDashboard: React.FC = () => {
           </div>
         );
       case 'x402':
-        return (
-          <div className="p-8">
-            <h2 className="text-3xl font-black mb-4">x402 Protocol Dashboard</h2>
-            <p className="text-slate-500">Global blockchain settlements will appear here. (Coming Soon)</p>
-          </div>
-        );
+        return <ProtocolDashboard />;
       case 'tests':
         return <TestDesigner />;
       default:
