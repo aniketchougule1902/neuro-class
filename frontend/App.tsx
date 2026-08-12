@@ -8,7 +8,7 @@ import { Hero } from './components/common/Hero';
 import Features from './components/common/Features';
 import { Process, DashboardPreview } from './components/common/WorkAndDashboard';
 import { TestSystem, Footer } from './components/common/TestAndFooter';
-import { ClassroomView } from './components/classroom/ClassroomView';
+import { InstructorDashboard } from './components/instructor/InstructorDashboard';
 import { StudentPortal } from './components/classroom/StudentPortal';
 import { AIModuleDashboard } from './components/ai/AIModuleDashboard';
 import { AnimatePresence } from 'motion/react';
@@ -50,7 +50,7 @@ const AppContent = () => {
             path="/teacher/*" 
             element={
               <SessionGuardian allowedRole="teacher">
-                <ClassroomView />
+                <InstructorDashboard />
               </SessionGuardian>
             } 
           />

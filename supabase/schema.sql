@@ -28,13 +28,18 @@ CREATE TABLE IF NOT EXISTS public.classrooms (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 3. CLASSROOM STUDENTS (ENROLLMENT)
-CREATE TABLE IF NOT EXISTS public.classroom_students (
+-- 3. STUDENTS ENROLLMENT (BIOMETRIC)
+CREATE TABLE IF NOT EXISTS public.students (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   classroom_id UUID REFERENCES public.classrooms(id) ON DELETE CASCADE,
-  student_id TEXT NOT NULL,
-  student_name TEXT,
-  joined_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+  user_id TEXT,
+  name TEXT NOT NULL,
+  roll_number TEXT,
+  phone TEXT,
+  email TEXT,
+  face_samples JSONB DEFAULT '[]'::jsonb,
+  joined_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  UNIQUE(classroom_id, email)
 );
 
 -- 4. TESTS & EXAMS TABLE
@@ -111,7 +116,7 @@ CREATE TABLE IF NOT EXISTS public.x402_payments (
 -- RLS Row-Level Security Policies (Public Demo Read/Write Access)
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.classrooms ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.classroom_students ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.test_submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance ENABLE ROW LEVEL SECURITY;
