@@ -228,9 +228,8 @@ export const ClassroomView: React.FC<ClassroomViewProps> = ({ user, onClose, onO
       <header className="h-20 border-b border-black/5 dark:border-white/5 px-8 flex items-center justify-between bg-white/80 dark:bg-black/40 backdrop-blur-3xl z-50">
         <div className="flex items-center gap-10">
           <div className="flex items-center gap-4">
-             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-purple-600 to-pink-600 flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.3)]">
-                <BrainCircuit className="text-white" size={24} />
-             </div>
+             <img src="/logo-light.png" alt="NeuroClass Logo" className="h-9 w-auto object-contain block dark:hidden drop-shadow-[0_0_8px_rgba(59,130,246,0.2)]" />
+             <img src="/logo-dark.png" alt="NeuroClass Logo" className="h-9 w-auto object-contain hidden dark:block drop-shadow-[0_0_10px_rgba(59,130,246,0.4)]" />
              <div>
                <h1 className="text-sm font-bold tracking-[0.2em] uppercase text-slate-900 dark:text-white">NeuroClass</h1>
                <div className="flex items-center gap-2">
@@ -1280,12 +1279,15 @@ const GlobalTestsView: React.FC<{ user: any, onEditTest: (test: Test) => void }>
           <GlassCard key={test.id} className="p-8 flex flex-col space-y-6" glow>
             <div className="flex justify-between items-start">
                <div className="w-12 h-12 rounded-2xl bg-indigo-600/10 text-indigo-600 flex items-center justify-center overflow-hidden">
-                  {test.test_data?.settings?.logoUrl ? (
-                    <img src={test.test_data.settings.logoUrl} alt="Logo" className="w-full h-full object-contain" />
-                  ) : (
-                    <span className="text-xl">{test.test_data?.settings?.institutionIcon || <FileText size={24} />}</span>
-                  )}
-               </div>
+                   {test.test_data?.settings?.logoUrl ? (
+                      <img src={test.test_data.settings.logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
+                    ) : (
+                      <>
+                        <img src="/logo-light.png" alt="Logo" className="w-full h-full object-contain block dark:hidden p-0.5" />
+                        <img src="/logo-dark.png" alt="Logo" className="w-full h-full object-contain hidden dark:block p-0.5" />
+                      </>
+                    )}
+                </div>
                <div className="flex gap-2">
                   <button 
                     onClick={() => onEditTest({ ...(test.test_data || {}), id: test.id, classroom_id: test.classroom_id })}
@@ -1366,12 +1368,15 @@ const TestsListView: React.FC<{ user: any, classId: string, onShowToast: any, on
          <GlassCard key={test.id} className="p-8 flex flex-col space-y-6" glow>
             <div className="flex justify-between items-start">
                <div className="w-12 h-12 rounded-2xl bg-indigo-600/10 text-indigo-600 flex items-center justify-center overflow-hidden">
-                  {test.test_data?.settings?.logoUrl ? (
-                    <img src={test.test_data.settings.logoUrl} alt="Logo" className="w-full h-full object-contain" />
-                  ) : (
-                    <span className="text-xl">{test.test_data?.settings?.institutionIcon || <FileText size={24} />}</span>
-                  )}
-               </div>
+                   {test.test_data?.settings?.logoUrl ? (
+                      <img src={test.test_data.settings.logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
+                    ) : (
+                      <>
+                        <img src="/logo-light.png" alt="Logo" className="w-full h-full object-contain block dark:hidden p-0.5" />
+                        <img src="/logo-dark.png" alt="Logo" className="w-full h-full object-contain hidden dark:block p-0.5" />
+                      </>
+                    )}
+                </div>
                <div className="flex gap-2">
                   <button 
                     onClick={() => onEditTest({ ...(test.test_data || {}), id: test.id, classroom_id: test.classroom_id })}

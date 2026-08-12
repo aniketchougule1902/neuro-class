@@ -140,10 +140,19 @@ export const Footer: React.FC = () => {
           className="flex flex-col md:flex-row justify-between items-start gap-12 mb-20 will-change-transform transform-gpu"
         >
           <div className="space-y-6 max-w-sm">
-             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600"></div>
-              <span className="text-xl font-bold tracking-tighter text-slate-900 dark:text-white">
-                NEUROCLASS
+             <div className="flex items-center gap-3">
+              <img 
+                src="/logo-light.png" 
+                alt="NeuroClass Logo" 
+                className="h-10 w-auto object-contain block dark:hidden drop-shadow-[0_0_10px_rgba(59,130,246,0.2)]" 
+              />
+              <img 
+                src="/logo-dark.png" 
+                alt="NeuroClass Logo" 
+                className="h-10 w-auto object-contain hidden dark:block drop-shadow-[0_0_12px_rgba(59,130,246,0.4)]" 
+              />
+              <span className="text-xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+                NEURO<span className="text-blue-600 dark:text-blue-400 font-light">CLASS</span>
               </span>
             </div>
             <p className="text-sm font-light text-slate-500 leading-relaxed">

@@ -15,9 +15,8 @@ export const AIModuleDashboard: React.FC<{ onClose: () => void }> = ({ onClose }
 
       <header className="h-20 border-b border-black/5 dark:border-white/5 flex items-center justify-between px-10 relative z-10 backdrop-blur-3xl bg-white/40 dark:bg-black/40">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <BrainCircuit className="text-white" size={24} />
-          </div>
+          <img src="/logo-light.png" alt="NeuroClass Logo" className="h-9 w-auto object-contain block dark:hidden drop-shadow-[0_0_8px_rgba(59,130,246,0.2)]" />
+          <img src="/logo-dark.png" alt="NeuroClass Logo" className="h-9 w-auto object-contain hidden dark:block drop-shadow-[0_0_10px_rgba(59,130,246,0.4)]" />
           <div>
             <h1 className="text-sm font-black uppercase tracking-[0.3em]">AI Module Registry</h1>
             <p className="text-[9px] opacity-40 font-bold uppercase tracking-widest text-[#64748b]">Localized Intelligence Platform</p>

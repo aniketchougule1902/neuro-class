@@ -308,9 +308,8 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({ user, onClose }) =
       {/* Student Top Bar */}
       <header className="h-20 border-b border-black/5 dark:border-white/5 px-8 flex items-center justify-between bg-white/80 dark:bg-black/40 backdrop-blur-3xl z-50">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg">
-             <UserCheck size={20} />
-          </div>
+          <img src="/logo-light.png" alt="NeuroClass Logo" className="h-9 w-auto object-contain block dark:hidden drop-shadow-[0_0_8px_rgba(59,130,246,0.2)]" />
+          <img src="/logo-dark.png" alt="NeuroClass Logo" className="h-9 w-auto object-contain hidden dark:block drop-shadow-[0_0_10px_rgba(59,130,246,0.4)]" />
           <div>
             <h1 className="text-sm font-bold tracking-[0.2em] uppercase">Student Portal</h1>
             <p className="text-[9px] text-slate-500 uppercase tracking-widest">{user?.email}</p>

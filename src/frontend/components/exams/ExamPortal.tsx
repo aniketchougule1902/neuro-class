@@ -438,11 +438,7 @@ export default function ExamPortal({ test, attemptId, onExit, isDemo = false }: 
       <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0 shadow-sm z-50">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-4 border-r border-slate-100 pr-6 mr-6">
-             {test.settings.logoUrl ? (
-               <img src={test.settings.logoUrl} alt="Logo" className="h-10 w-auto object-contain" />
-             ) : (
-               <span className="text-2xl">{test.settings.institutionIcon}</span>
-             )}
+             <img src={test.settings.logoUrl || '/logo.png'} alt="Orynex Logo" className="h-10 w-auto object-contain" />
              <div>
                 <h1 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">{test.settings.institutionName}</h1>
                 <p className="text-sm font-bold text-slate-900 tracking-tight">{test.settings.title}</p>

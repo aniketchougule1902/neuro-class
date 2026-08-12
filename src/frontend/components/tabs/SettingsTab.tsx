@@ -163,7 +163,7 @@ export default function SettingsTab({ test, setTest }: SettingsTabProps) {
                 <input
                   value={test.settings.logoUrl || ''}
                   onChange={(e) => updateSettings({ logoUrl: e.target.value })}
-                  placeholder="https://example.com/logo.png"
+                  placeholder="/logo.png"
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-xs font-mono text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>

@@ -110,9 +110,8 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
           >
             <header className="flex justify-between items-center border-b border-black/5 dark:border-white/5 pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-                  <BrainCircuit size={22} />
-                </div>
+                <img src="/logo-light.png" alt="NeuroClass Logo" className="h-9 w-auto object-contain block dark:hidden drop-shadow-[0_0_8px_rgba(59,130,246,0.2)]" />
+                <img src="/logo-dark.png" alt="NeuroClass Logo" className="h-9 w-auto object-contain hidden dark:block drop-shadow-[0_0_10px_rgba(59,130,246,0.4)]" />
                 <div>
                   <h2 className="text-lg font-black tracking-tight text-slate-900 dark:text-white uppercase">AI Test Designer</h2>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">

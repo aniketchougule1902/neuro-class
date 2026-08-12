@@ -47,15 +47,21 @@ const Navbar: React.FC<NavbarProps> = ({
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2 group cursor-pointer"
+            className="flex items-center gap-3 group cursor-pointer"
+            onClick={() => setActiveTab && setActiveTab('home')}
           >
-            <motion.div 
-              animate={{ rotate: [0, 360] }}
-              transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-              className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+            <img 
+              src="/logo-light.png" 
+              alt="NeuroClass Logo" 
+              className="h-10 w-auto object-contain block dark:hidden drop-shadow-[0_0_10px_rgba(59,130,246,0.2)] transition-transform group-hover:scale-105" 
             />
-            <span className="text-xl font-bold tracking-tighter text-slate-900 dark:text-white">
-              NEUROCLASS
+            <img 
+              src="/logo-dark.png" 
+              alt="NeuroClass Logo" 
+              className="h-10 w-auto object-contain hidden dark:block drop-shadow-[0_0_12px_rgba(59,130,246,0.4)] transition-transform group-hover:scale-105" 
+            />
+            <span className="text-xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+              NEURO<span className="text-blue-600 dark:text-blue-400 font-light">CLASS</span>
             </span>
           </motion.div>
 
