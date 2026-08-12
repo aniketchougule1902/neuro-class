@@ -3,22 +3,23 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "dev": "tsx watch server.ts",
-    "build": "echo 'Serverless build handled by Vercel'",
-    "start": "node server.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
   },
   "dependencies": {
     "@google/genai": "^1.50.1",
     "@supabase/supabase-js": "^2.104.1",
     "algosdk": "^3.6.0",
-    "cors": "^2.8.6",
     "dotenv": "^17.2.3",
-    "express": "^4.21.2"
+    "next": "^14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2"
   }
