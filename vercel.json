@@ -1,12 +1,10 @@
 {
+  "installCommand": "npm install",
+  "buildCommand": "node scripts/vercel-build.mjs",
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "/api/index.ts"
-    },
-    {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
     }
   ]
 }
