@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/common/Navbar';
@@ -30,10 +30,16 @@ const AppContent = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [showAIModule, setShowAIModule] = useState(false);
+  const navigate = useNavigate();
 
   const openAuth = (mode: 'signin' | 'signup') => {
     setAuthMode(mode);
     setIsAuthModalOpen(true);
+  };
+
+  const handleAuthSuccess = (role: 'teacher' | 'student') => {
+    setIsAuthModalOpen(false);
+    navigate(`/${role}`);
   };
 
   return (
@@ -79,7 +85,7 @@ const AppContent = () => {
       <AuthModal 
         isOpen={isAuthModalOpen} 
         onClose={() => setIsAuthModalOpen(false)} 
-        onSelectRole={() => setIsAuthModalOpen(false)} // Navigation is handled by SessionGuardian now natively upon state change!
+        onSelectRole={handleAuthSuccess}
         initialMode={authMode}
       />
     </div>

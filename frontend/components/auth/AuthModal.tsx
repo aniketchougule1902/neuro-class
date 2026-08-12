@@ -48,19 +48,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSelectR
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!role) return;
+    if (authMode === 'signup' && !role) return;
     
     setLoading(true);
     setError('');
 
     try {
+      let fetchedRole = role;
       if (authMode === 'signin') {
-        await authService.signInWithEmail(email, password);
+        const result = await authService.signInWithEmail(email, password);
+        // User is returned but we need role
+        const actualRole = await authService.getUserRole(result.user.id);
+        fetchedRole = actualRole as any;
       } else {
-        await authService.signUpWithEmail(email, password, name, phone, role);
+        await authService.signUpWithEmail(email, password, name, phone, role as any);
       }
       
-      onSelectRole(role); // Triggers app routing
+      if (fetchedRole) {
+         onSelectRole(fetchedRole as any); // Triggers app routing
+      }
     } catch (err: any) {
       console.error('Auth Error:', err);
       setError(err.message || 'Authentication failed. Please check your credentials.');
@@ -70,9 +76,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSelectR
   };
 
   const resetState = () => {
-    setStep(1);
+    setStep(authMode === 'signup' ? 1 : 2);
     setRole(null);
-    setAuthMode('signin');
     setName('');
     setEmail('');
     setPhone('');
@@ -80,6 +85,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSelectR
     setError('');
     onClose();
   };
+
+  // When opening modal, skip role selection for signin
+  React.useEffect(() => {
+    if (isOpen) {
+       setStep(authMode === 'signup' ? 1 : 2);
+    }
+  }, [isOpen, authMode]);
 
   return (
     <AnimatePresence>
@@ -139,7 +151,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSelectR
             </button>
 
             <AnimatePresence mode="wait">
-              {step === 1 && (
+              {step === 1 && authMode === 'signup' && (
                 <motion.div 
                   key="step1"
                   initial={{ opacity: 0, x: -20 }}
@@ -208,14 +220,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSelectR
                   exit={{ opacity: 0, x: 20 }}
                   className="mt-8 space-y-6"
                 >
-                  <div className="flex items-center gap-4 mb-2">
-                    <button onClick={() => setStep(1)} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
-                      <ArrowRight size={20} className="rotate-180" />
-                    </button>
-                    <span className="text-xs font-bold uppercase tracking-widest text-blue-500">
-                      {role} Portal
-                    </span>
-                  </div>
+                  {authMode === 'signup' && (
+                    <div className="flex items-center gap-4 mb-2">
+                      <button onClick={() => setStep(1)} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+                        <ArrowRight size={20} className="rotate-180" />
+                      </button>
+                      <span className="text-xs font-bold uppercase tracking-widest text-blue-500">
+                        {role} Portal
+                      </span>
+                    </div>
+                  )}
 
                   <div>
                     <h3 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">
@@ -237,6 +251,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSelectR
                           <input 
                             type="text" 
                             required 
+
                             placeholder="Full Name" 
                             value={name}
                             onChange={e => setName(e.target.value)}
