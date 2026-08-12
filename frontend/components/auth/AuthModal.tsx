@@ -58,7 +58,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSelectR
       if (authMode === 'signin') {
         const result = await authService.signInWithEmail(email, password);
         // User is returned but we need role
-        const actualRole = await authService.getUserRole(result.user.id);
+        const actualRole = await authService.getUserRole(result.id);
         fetchedRole = actualRole as any;
       } else {
         await authService.signUpWithEmail(email, password, name, phone, role as any);
