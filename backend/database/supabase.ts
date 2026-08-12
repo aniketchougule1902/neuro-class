@@ -1,7 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+// Safely access process.env for Node.js environments
+const nodeEnvUrl = typeof process !== 'undefined' && process.env ? (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL) : undefined;
+const nodeEnvKey = typeof process !== 'undefined' && process.env ? (process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY) : undefined;
+
+// Safely access import.meta.env for Vite browser environments
+const viteEnvUrl = typeof import.meta !== 'undefined' && (import.meta as any).env ? (import.meta as any).env.VITE_SUPABASE_URL : undefined;
+const viteEnvKey = typeof import.meta !== 'undefined' && (import.meta as any).env ? (import.meta as any).env.VITE_SUPABASE_ANON_KEY : undefined;
+
+const supabaseUrl = viteEnvUrl || nodeEnvUrl;
+const supabaseAnonKey = viteEnvKey || nodeEnvKey;
 
 export const isSupabaseConfigured = () => !!supabaseUrl && !!supabaseAnonKey;
 
