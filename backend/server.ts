@@ -8,6 +8,7 @@ import { requireX402Payment } from "./middleware/x402Middleware";
 import { algorandService, NEUROCLASS_TREASURY_ADDRESS } from "./services/algorandService";
 import { aiGenerationService } from "./services/aiGenerationService";
 
+dotenv.config({ path: path.resolve(process.cwd(), "backend/.env") });
 dotenv.config();
 
 let aiClient: GoogleGenAI | null = null;
