@@ -2,7 +2,6 @@
   "name": "neuroclass-backend",
   "private": true,
   "version": "1.0.0",
-  "type": "module",
   "scripts": {
     "dev": "tsx watch server.ts",
     "build": "echo 'Serverless build handled by Vercel'",
