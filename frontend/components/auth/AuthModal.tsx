@@ -13,12 +13,21 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectRole: (role: 'teacher' | 'student') => void;
+  initialMode?: 'signin' | 'signup';
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSelectRole }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSelectRole, initialMode = 'signin' }) => {
   const [step, setStep] = useState<1 | 2>(1);
   const [role, setRole] = useState<'teacher' | 'student' | null>(null);
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>(initialMode);
+
+  // Sync state if prop changes
+  React.useEffect(() => {
+    if (isOpen) {
+      setAuthMode(initialMode);
+    }
+  }, [isOpen, initialMode]);
+
   
   // Form State
   const [name, setName] = useState('');
