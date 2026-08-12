@@ -1,63 +1,67 @@
-import { signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { User as SupabaseUser } from '@supabase/supabase-js';
-import { auth as firebaseAuth, googleProvider, db, handleFirestoreError } from '../database/firebase';
-import { supabase, isSupabaseConfigured } from '../database/supabase';
+import { supabase } from '../database/supabase';
 
-export type AppUser = SupabaseUser | FirebaseUser;
+export type AppUser = SupabaseUser;
 
 export const authService = {
   /**
-   * Initiate Google OAuth Sign In flow with popup
+   * Initiate Google OAuth Sign In flow with popup via Supabase
    */
-  async loginWithGoogleOAuth(): Promise<FirebaseUser> {
-    const result = await signInWithPopup(firebaseAuth, googleProvider);
-    const fbUser = result.user;
+  async loginWithGoogleOAuth(): Promise<AppUser> {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        }
+      }
+    });
+    
+    if (error) {
+      throw error;
+    }
 
-    const userRef = doc(db, 'users', fbUser.uid);
-    try {
-      const userSnap = await getDoc(userRef);
-      if (!userSnap.exists()) {
-        await setDoc(userRef, {
-          uid: fbUser.uid,
-          email: fbUser.email,
-          displayName: fbUser.displayName,
-          photoURL: fbUser.photoURL,
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session?.user) {
+      const userRef = session.user;
+      const { data: userDoc } = await supabase.from('users').select('*').eq('uid', userRef.id).single();
+      
+      if (!userDoc) {
+        await supabase.from('users').insert({
+          uid: userRef.id,
+          email: userRef.email,
+          displayName: userRef.user_metadata?.full_name || '',
+          photoURL: userRef.user_metadata?.avatar_url || '',
           role: 'teacher',
           createdAt: new Date().toISOString()
         });
       }
-    } catch (e) {
-      try {
-        handleFirestoreError(e, 'get', `users/${fbUser.uid}`);
-      } catch (formattedErr) {
-        console.warn('Firestore user doc record write warning:', formattedErr);
-      }
+      return userRef;
     }
-    return fbUser;
+    
+    throw new Error('OAuth login initiated. Waiting for redirect/popup...');
   },
 
   /**
-   * Sign out current active user from both Firebase and Supabase sessions
+   * Sign out current active user from Supabase session
    */
   async logout(): Promise<void> {
-    await firebaseSignOut(firebaseAuth);
-    if (isSupabaseConfigured()) {
-      await supabase.auth.signOut();
-    }
+    await supabase.auth.signOut();
   },
 
   /**
-   * Retrieve user role ('teacher' | 'student') from Firestore
+   * Retrieve user role ('teacher' | 'student') from Supabase
    */
   async getUserRole(uid: string): Promise<'teacher' | 'student'> {
     try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) {
-        return userDoc.data().role || 'teacher';
+      const { data: userDoc, error } = await supabase.from('users').select('role').eq('uid', uid).single();
+      if (!error && userDoc) {
+        return userDoc.role || 'teacher';
       }
     } catch (e) {
-      console.warn('Failed to fetch user role from Firestore:', e);
+      console.warn('Failed to fetch user role from Supabase:', e);
     }
     return 'teacher';
   },
@@ -66,31 +70,14 @@ export const authService = {
    * Subscribe to authentication state changes
    */
   subscribeToAuthState(onUserChanged: (user: AppUser | null) => void): () => void {
-    const unsubscribeFirebase = onAuthStateChanged(firebaseAuth, (fbUser) => {
-      if (fbUser) {
-        onUserChanged(fbUser);
-      } else if (isSupabaseConfigured()) {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          onUserChanged(session?.user ?? null);
-        });
-      } else {
-        onUserChanged(null);
-      }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      onUserChanged(session?.user ?? null);
     });
 
-    let unsubscribeSupabase = () => {};
-    if (isSupabaseConfigured()) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (!firebaseAuth.currentUser) {
-          onUserChanged(session?.user ?? null);
-        }
-      });
-      unsubscribeSupabase = () => subscription.unsubscribe();
-    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      onUserChanged(session?.user ?? null);
+    });
 
-    return () => {
-      unsubscribeFirebase();
-      unsubscribeSupabase();
-    };
+    return () => subscription.unsubscribe();
   }
 };

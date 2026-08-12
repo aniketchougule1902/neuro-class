@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { LocalMLService } from '../../../services/ml/LocalMLService';
 import { CameraService } from '../../../services/ml/CameraService';
 import { EmailService } from '../../../services/ml/EmailService';
-import { auth as firebaseAuth } from '../../../database/firebase';
+import { supabase } from '../../../database/supabase';
 import { supabase } from '../../../database/supabase';
 import * as faceapi from '@vladmandic/face-api';
 import { logEvent } from '../../../database/analytics';
@@ -76,7 +76,8 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
     
     if (match) {
       setIdentified(prev => [match, ...prev]);
-      const currentUser = firebaseAuth.currentUser;
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = session?.user;
       
       const attendanceData: any = {
         student_id: match.studentId,
@@ -152,7 +153,8 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
         if (student && !identified.find(i => i.studentId === student.id)) {
           setIdentified(prev => [{ studentId: student.id, name: student.name, confidence: (1 - match.distance) * 100 }, ...prev]);
           
-          const currentUser = firebaseAuth.currentUser;
+          const { data: { session } } = await supabase.auth.getSession();
+          const currentUser = session?.user;
           const attendanceData: any = {
             student_id: student.id,
             classroom_id: classId,

@@ -8,8 +8,7 @@ import {
   Phone, Hash, Mail, ClipboardList, Play, LogOut, Sparkles
 } from 'lucide-react';
 import { supabase } from '../../../database/supabase';
-import { auth as firebaseAuth } from '../../../database/firebase';
-import { signOut as firebaseSignOut } from 'firebase/auth';
+import { supabase } from '../../../database/supabase';
 import { CameraService } from '../../../services/ml/CameraService';
 import { LocalMLService } from '../../../services/ml/LocalMLService';
 import ExamPortal from '../exams/ExamPortal';
@@ -323,7 +322,6 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({ user, onClose }) =
            <button 
             onClick={async () => {
               await supabase.auth.signOut();
-              await firebaseSignOut(firebaseAuth);
               localStorage.removeItem('neuroclass_role');
               window.location.reload();
             }}

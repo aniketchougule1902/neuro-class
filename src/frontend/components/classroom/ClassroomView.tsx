@@ -27,8 +27,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 import { useTheme } from '../../context/ThemeContext';
-import { auth as firebaseAuth } from '../../../database/firebase';
-import { signOut as firebaseSignOut } from 'firebase/auth';
+
 import { supabase, isSupabaseConfigured } from '../../../database/supabase';
 import { logClassroomCreated } from '../../../database/analytics';
 import { Test, Theme, LayoutModuleType } from '../../types';
@@ -256,7 +255,7 @@ export const ClassroomView: React.FC<ClassroomViewProps> = ({ user, onClose, onO
           <button 
             onClick={async () => {
               await supabase.auth.signOut();
-              await firebaseSignOut(firebaseAuth);
+              await supabase.auth.signOut();
               localStorage.removeItem('neuroclass_role');
               window.location.reload();
             }}
