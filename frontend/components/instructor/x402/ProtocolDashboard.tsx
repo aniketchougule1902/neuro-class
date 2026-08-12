@@ -21,8 +21,8 @@ export const ProtocolDashboard = () => {
     setLoading(true);
     setError('');
     try {
-      // Assuming backend runs on 9000 as per VITE_BACKEND_URL
-      const backendUrl = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:9000';
+      // Assuming backend runs on 3000 as per default Next.js
+      const backendUrl = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3000';
       const response = await fetch(`${backendUrl}/api/x402/demo-wallet`);
       
       if (!response.ok) throw new Error('Failed to generate wallet');

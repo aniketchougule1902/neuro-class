@@ -54,7 +54,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
       
       // 2. Generate via AI
       setStatus('generating');
-      const backendUrl = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:9000';
+      const backendUrl = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3000';
       
       const res = await fetch(`${backendUrl}/api/ai/generate-test`, {
         method: 'POST',
