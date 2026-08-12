@@ -1,10 +1,9 @@
-import { createExpressApp } from "../server";
-
 let app: any;
 
-export default function handler(req: any, res: any) {
+export default async function handler(req: any, res: any) {
   try {
     if (!app) {
+      const { createExpressApp } = await import("../server");
       app = createExpressApp();
     }
     return app(req, res);
