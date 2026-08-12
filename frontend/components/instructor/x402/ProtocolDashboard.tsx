@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Wallet, Copy, ExternalLink, Zap, RefreshCw, ShieldCheck, Activity } from 'lucide-react';
 import { cn } from '../../../lib/utils';
+import { algoClient } from '../../services/algoClient';
 
 export const ProtocolDashboard = () => {
   const [wallet, setWallet] = useState<any>(null);
@@ -34,6 +35,21 @@ export const ProtocolDashboard = () => {
       localStorage.setItem('x402_wallet', JSON.stringify(data));
     } catch (err: any) {
       setError(err.message || 'Network error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshBalance = async () => {
+    if (!wallet) return;
+    setLoading(true);
+    try {
+      const balance = await algoClient.getBalance(wallet.address);
+      const updatedWallet = { ...wallet, balanceAlgo: balance };
+      setWallet(updatedWallet);
+      localStorage.setItem('x402_wallet', JSON.stringify(updatedWallet));
+    } catch (err: any) {
+      console.error('Failed to refresh balance:', err);
     } finally {
       setLoading(false);
     }
@@ -142,7 +158,7 @@ export const ProtocolDashboard = () => {
                     Fund via Dispenser <ExternalLink size={14} />
                   </a>
                   <button 
-                    onClick={generateWallet}
+                    onClick={refreshBalance}
                     className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-white transition-colors"
                     title="Refresh Balance"
                   >
