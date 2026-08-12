@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -8,7 +7,8 @@ import { requireX402Payment } from "./middleware/x402Middleware";
 import { algorandService, NEUROCLASS_TREASURY_ADDRESS } from "./services/algorandService";
 import { aiGenerationService } from "./services/aiGenerationService";
 
-dotenv.config({ path: path.resolve(process.cwd(), "backend/.env") });
+// Load .env from backend directory or project root
+dotenv.config({ path: path.resolve(__dirname, ".env") });
 dotenv.config();
 
 let aiClient: GoogleGenAI | null = null;
@@ -251,7 +251,7 @@ export function createExpressApp() {
   app.get("/api/x402/demo-wallet", async (_req, res) => {
     try {
       const wallet = algorandService.generateTestnetWallet();
-      const balance = await algorandService.getBalance(wallet.address);
+      const balance = await algorandService.getBalance(String(wallet.address));
       res.json({
         address: wallet.address,
         mnemonic: wallet.mnemonic,
@@ -301,21 +301,6 @@ export function createExpressApp() {
 export async function startBackendServer() {
   const app = createExpressApp();
   const PORT = process.env.PORT || 9000;
-
-  // Vite Middleware in monolithic development mode
-  if (process.env.NODE_ENV !== "production" && process.env.DECOUPLED !== "true") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
 
   app.listen(PORT, () => {
     console.log(`Backend server running on http://localhost:${PORT}`);

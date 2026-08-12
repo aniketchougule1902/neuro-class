@@ -27,7 +27,7 @@ export const algorandService = {
     const account = algosdk.generateAccount();
     const mnemonic = algosdk.secretKeyToMnemonic(account.sk);
     return {
-      address: account.addr,
+      address: String(account.addr),
       mnemonic,
       secretKey: Buffer.from(account.sk).toString('hex')
     };
@@ -36,9 +36,9 @@ export const algorandService = {
   /**
    * Check balance of an Algorand address on Testnet (in ALGOs)
    */
-  async getBalance(address: string): Promise<number> {
+  async getBalance(address: string | any): Promise<number> {
     try {
-      const info = await algodClient.accountInformation(address).do();
+      const info = await algodClient.accountInformation(String(address)).do();
       return Number(info.amount) / 1e6; // Convert MicroAlgos to ALGO
     } catch (err) {
       // Return demo balance fallback if account isn't funded yet on chain
