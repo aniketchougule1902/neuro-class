@@ -70,11 +70,12 @@ export const algorandService = {
       const txInfo = await indexerClient.lookupTransactionByID(txId).do();
       const transaction = txInfo.transaction;
 
-      if (!transaction || transaction['tx-type'] !== 'pay') {
+      if (!transaction || (transaction.txType !== 'pay' && transaction['tx-type'] !== 'pay')) {
         return { valid: false, message: 'Transaction is not a valid Algorand payment' };
       }
 
-      const amountMicroAlgo = transaction['payment-transaction']?.amount ?? 0;
+      const paymentInfo = transaction.paymentTransaction || transaction['payment-transaction'];
+      const amountMicroAlgo = Number(paymentInfo?.amount ?? 0);
       const amountAlgo = amountMicroAlgo / 1e6;
 
       if (amountAlgo < minAmountAlgo) {
