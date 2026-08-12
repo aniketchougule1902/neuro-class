@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, X, BrainCircuit, Check, AlertCircle, Loader2, Zap } from 'lucide-react';
 import { X402PaymentModal, X402Challenge } from '../payment/X402PaymentModal';
+import { getApiUrl } from '../../config/apiConfig';
 
 interface AITestGeneratorModalProps {
   isOpen: boolean;
@@ -44,7 +45,7 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
     }
 
     try {
-      const response = await fetch('/api/ai/generate-test', {
+      const response = await fetch(getApiUrl('/api/ai/generate-test'), {
         method: 'POST',
         headers,
         body: JSON.stringify({

@@ -4,6 +4,7 @@ import {
   ArrowRight, Download, UploadCloud, Check, ShieldAlert, ListFilter
 } from 'lucide-react';
 import { getEvaluations, saveEvaluation, EvaluationRecord, subscribeToStoreChanges } from '../../../services/evaluationStore';
+import { getApiUrl } from '../../config/apiConfig';
 
 export const AssignmentEvaluator: React.FC = () => {
   const [evalList, setEvalList] = useState<EvaluationRecord[]>([]);
@@ -71,7 +72,7 @@ export const AssignmentEvaluator: React.FC = () => {
     }
 
     try {
-      const response = await fetch('/api/evaluate/assignment', {
+      const response = await fetch(getApiUrl('/api/evaluate/assignment'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

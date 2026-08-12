@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShieldCheck, Zap, AlertCircle, Copy, Check, ExternalLink, RefreshCw, X, Coins } from 'lucide-react';
+import { getApiUrl } from '../../config/apiConfig';
 
 export interface X402Challenge {
   protocol: string;
@@ -32,7 +33,7 @@ export const X402PaymentModal: React.FC<X402PaymentModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       // Fetch or generate Algorand Testnet demo wallet
-      fetch('/api/x402/demo-wallet')
+      fetch(getApiUrl('/api/x402/demo-wallet'))
         .then(res => res.json())
         .then(data => {
           if (data.address) {
@@ -59,7 +60,7 @@ export const X402PaymentModal: React.FC<X402PaymentModalProps> = ({
       // Generate Algorand Testnet Settlement Transaction Hash
       const mockTxId = `X402-SETTLED-ALGO-${Math.random().toString(36).substring(2, 10).toUpperCase()}-${Date.now()}`;
       
-      const verifyRes = await fetch('/api/x402/verify', {
+      const verifyRes = await fetch(getApiUrl('/api/x402/verify'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -16,26 +16,30 @@ function getAIClient(): GoogleGenAI {
   if (!aiClient) {
     const key = process.env.GEMINI_API_KEY;
     if (!key) {
-      throw new Error("GEMINI_API_KEY environment variable is required");
-    }
-    aiClient = new GoogleGenAI({
-      apiKey: key,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
+      aiClient = new GoogleGenAI({ apiKey: 'DEMO_KEY' });
+    } else {
+      aiClient = new GoogleGenAI({
+        apiKey: key,
+        httpOptions: {
+          headers: { 'User-Agent': 'aistudio-build' }
         }
-      }
-    });
+      });
+    }
   }
   return aiClient;
 }
 
-export async function startBackendServer() {
+export function createExpressApp() {
   const app = express();
-  const PORT = 9000;
 
-  app.use(cors());
-  app.use(express.json());
+  // CORS - Allow cross-origin requests for decoupled Vercel deployment
+  app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-402-Payment-TxId', 'X-Payment-TxId']
+  }));
+
+  app.use(express.json({ limit: '50mb' }));
 
   // AI Question Paper Analysis Route
   app.post("/api/analyze-question-paper", async (req, res) => {
@@ -51,56 +55,45 @@ export async function startBackendServer() {
       let promptText = `
         You are the Elite AI Question Paper Analyst and OCR digitizer for NeuroClass.
         YOUR TASK is to:
-        1. Parse the uploaded question paper (which can be raw text or an image of printed/handwritten exam paper).
+        1. Parse the uploaded question paper.
         2. Identify and list every single question in the paper.
-        3. For each question, extract or suggest:
-           a. The question number (e.g. "Q1", "2", "3b").
-           b. The exact/extracted question text.
-           c. The maximum marks allocated to this question (if specified; if not, guess reasonable marks like 5 or 10).
-           d. A concise expected answer key/concept reference for full marks.
-        4. Provide the total marks (sum of all maximum marks).
-        
-        Return a valid JSON object matching this structure:
+        3. For each question, extract: question number, exact question text, marks allocated, and concise answer key.
+
+        Format strictly as JSON matching this schema:
         {
-          "title": "Exam/Test Sheet Title",
-          "subject": "${subject || "General Studies"}",
-          "totalMarks": number,
-          "questions": Array<{
-            "questionNumber": string,
-            "questionText": string,
-            "maxMarks": number,
-            "expectedAnswerSummary": string
-          }>
+          "title": "Extracted Exam Title",
+          "subject": "${subject || 'General'}",
+          "totalMarks": 100,
+          "questions": [
+            {
+              "number": "Q1",
+              "text": "Full question statement",
+              "marks": 10,
+              "expectedAnswer": "Model solution points"
+            }
+          ]
         }
       `;
 
-      parts.push({ text: promptText });
-
-      const parseBase64Image = (dataUrl: string) => {
-        const matches = dataUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-        return matches ? { mimeType: matches[1], data: matches[2] } : null;
-      };
-
-      if (typeof questionPaper === 'string') {
-        const imgData = parseBase64Image(questionPaper);
-        if (imgData) {
+      if (questionPaper.startsWith("data:image/")) {
+        const matches = questionPaper.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
+        if (matches) {
           parts.push({
-            inlineData: {
-              mimeType: imgData.mimeType,
-              data: imgData.data
-            }
+            inlineData: { mimeType: matches[1], data: matches[2] }
           });
-        } else {
-          parts.push({ text: `Question Paper Content:\n${questionPaper}` });
         }
+      } else {
+        promptText += `\n\n--- QUESTION PAPER CONTENT ---\n${questionPaper}`;
       }
 
+      parts.push({ text: promptText });
+
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         contents: { parts },
         config: {
           responseMimeType: "application/json",
-          temperature: 0.1
+          temperature: 0.2
         }
       });
 
@@ -109,140 +102,66 @@ export async function startBackendServer() {
       res.json(JSON.parse(cleaned));
 
     } catch (err: any) {
-      console.error("Question Paper Analysis Error:", err);
+      console.error("AI Question Paper Parsing Error:", err);
       res.status(500).json({ error: err.message || "Failed to analyze question paper." });
     }
   });
 
-  // AI Test Paper Evaluation Route
+  // AI Student Test Paper OCR Evaluation Route
   app.post("/api/evaluate/test-paper", async (req, res) => {
     try {
-      const { questionPaper, modelAnswerKey, markingScheme, studentAnswerSheet, subject, studentName, analyzedQuestionPaper } = req.body;
-      
-      if (!studentAnswerSheet) {
-        return res.status(400).json({ error: "Missing student answer sheet content." });
+      const { studentAnswerSheet, subject, studentName, analyzedQuestionPaper } = req.body;
+      if (!studentAnswerSheet || !analyzedQuestionPaper) {
+        return res.status(400).json({ error: "Missing student answer sheet or reference question paper." });
       }
 
       const ai = getAIClient();
       const parts: any[] = [];
 
-      let promptText = "";
+      let promptText = `
+        You are the Master AI Evaluator for NeuroClass.
+        Grade the student's submission against the reference Question Paper.
+        Reference Question Paper: ${JSON.stringify(analyzedQuestionPaper)}
+        Student Name: ${studentName || 'Student'}
+        Subject: ${subject || 'General'}
 
-      if (analyzedQuestionPaper && Array.isArray(analyzedQuestionPaper.questions)) {
-        promptText = `
-          You are the Elite AI Evaluation Engine and OCR digitizer for NeuroClass.
-          YOUR TASK is to:
-          1. Identify the writing/text on the student's answer sheet. High-speed OCR the students file if it is an image (handwritten or printed). If the user provided text, process the text directly.
-          2. Evaluate the student's answers strictly against the following pre-analyzed Question Paper reference:
-             - Subject: ${subject || "General Studies"}
-             - Student Name: ${studentName || "Anonymous Student"}
-             - Assessment Name: ${analyzedQuestionPaper.title || "N/A"}
-             - Total Possible Marks: ${analyzedQuestionPaper.totalMarks || 100}
-             
-             QUESTIONS & GUIDELINES:
-             ${JSON.stringify(analyzedQuestionPaper.questions, null, 2)}
-          3. Match the student's written response for each question number listed.
-          4. Grade each student's answer carefully. Award partial marks out of the allocated maxMarks.
-          5. Explain deductions clearly and give direct, constructive feedback for each question.
-          6. Highlight overarching strengths, weaknesses, and direct steps for improvement.
-          7. Provide final score details.
-          
-          Return a valid JSON object matching this structure:
-          {
-            "totalMarksObtained": number,
-            "totalMarksPossible": number,
-            "percentage": number,
-            "grade": string,
-            "questionEvaluations": Array<{
-              "questionNumber": string,
-              "questionSummary": string,
-              "studentAnswerExtracted": string,
-              "marksAwarded": number,
-              "maxMarks": number,
-              "deductionExplanation": string,
-              "feedback": string
-            }>,
-            "overallFeedback": string,
-            "strengths": string[],
-            "weaknesses": string[],
-            "improvementSuggestions": string[]
-          }
-        `;
+        Output strictly JSON:
+        {
+          "totalMarksObtained": 85,
+          "totalMarksPossible": 100,
+          "percentage": 85,
+          "grade": "A",
+          "overallFeedback": "Excellent analytical rigor.",
+          "strengths": ["Clear step-by-step mathematical proofs"],
+          "weaknesses": ["Minor arithmetic slip in final step"],
+          "improvementSuggestions": ["Review wave packet boundary conditions"],
+          "questionEvaluations": [
+            {
+              "questionNumber": "Q1",
+              "marksAllocated": 10,
+              "marksAwarded": 9,
+              "feedback": "Great logic.",
+              "studentResponseSummary": "Accurate derivation."
+            }
+          ]
+        }
+      `;
+
+      if (studentAnswerSheet.startsWith("data:image/")) {
+        const matches = studentAnswerSheet.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
+        if (matches) {
+          parts.push({
+            inlineData: { mimeType: matches[1], data: matches[2] }
+          });
+        }
       } else {
-        // Fallback to legacy structure
-        promptText = `
-          You are the Elite AI Evaluation Engine and OCR digitizer for NeuroClass.
-          YOUR TASK is to:
-          1. Identify the writing/text on the student's answer sheet. High-speed OCR the students file if it is an image (handwritten or printed). If the user provided text, process the text directly.
-          2. Identify individual questions and answers.
-          3. Compare each student answer with the corresponding Model Answer Key / Reference.
-          4. Grade each answer carefully against the Marking Scheme. Award partial marks where appropriate.
-          5. Explain deductions clearly and give direct, constructive feedback for each question.
-          6. Highlight overarching strengths, weaknesses, and direct steps for improvement.
-          7. Provide a final score, total score, percentage, grade, and evaluation commentary.
-
-          CONTEXT:
-          - Subject: ${subject || "General Science/Studies"}
-          - Student Name: ${studentName || "Anonymous Student"}
-          - Question Paper Guidelines: ${questionPaper || "N/A"}
-          - Model Answer Key: ${modelAnswerKey || "Align to logical correctness based on general standards"}
-          - Marking Scheme: ${markingScheme || "Award marks on accuracy, explanation depth, and relevant formulas"}
-
-          Return a valid JSON object matching the following TypeScript schema:
-          {
-            "totalMarksObtained": number,
-            "totalMarksPossible": number,
-            "percentage": number,
-            "grade": string,
-            "questionEvaluations": Array<{
-              "questionNumber": string,
-              "questionSummary": string,
-              "studentAnswerExtracted": string,
-              "marksAwarded": number,
-              "maxMarks": number,
-              "deductionExplanation": string,
-              "feedback": string
-            }>,
-            "overallFeedback": string,
-            "strengths": string[],
-            "weaknesses": string[],
-            "improvementSuggestions": string[]
-          }
-        `;
+        promptText += `\n\n--- STUDENT ANSWER SHEET ---\n${studentAnswerSheet}`;
       }
 
       parts.push({ text: promptText });
 
-      const parseBase64Image = (dataUrl: string) => {
-        const matches = dataUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-        return matches ? { mimeType: matches[1], data: matches[2] } : null;
-      };
-
-      if (typeof studentAnswerSheet === 'string') {
-        const imgData = parseBase64Image(studentAnswerSheet);
-        if (imgData) {
-          parts.push({
-            inlineData: {
-              mimeType: imgData.mimeType,
-              data: imgData.data
-            }
-          });
-        } else {
-          parts.push({ text: `Student Answer Sheet Document Content:\n${studentAnswerSheet}` });
-        }
-      }
-
-      if (typeof questionPaper === 'string' && questionPaper.startsWith('data:image/')) {
-        const pImg = parseBase64Image(questionPaper);
-        if (pImg) parts.push({ inlineData: pImg });
-      }
-      if (typeof modelAnswerKey === 'string' && modelAnswerKey.startsWith('data:image/')) {
-        const keyImg = parseBase64Image(modelAnswerKey);
-        if (keyImg) parts.push({ inlineData: keyImg });
-      }
-
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         contents: { parts },
         config: {
           responseMimeType: "application/json",
@@ -256,15 +175,14 @@ export async function startBackendServer() {
 
     } catch (err: any) {
       console.error("Test Paper Evaluation Error:", err);
-      res.status(500).json({ error: err.message || "Evaluation processing failed." });
+      res.status(500).json({ error: err.message || "Evaluation engine failed." });
     }
   });
 
-  // AI Rubrics Assessment Route
+  // AI Assignment Rubric Evaluation Route
   app.post("/api/evaluate/assignment", async (req, res) => {
     try {
       const { assignmentDescription, rubric, studentSubmission, subject, studentName } = req.body;
-
       if (!studentSubmission) {
         return res.status(400).json({ error: "Missing student assignment submission." });
       }
@@ -272,69 +190,45 @@ export async function startBackendServer() {
       const ai = getAIClient();
       const parts: any[] = [];
 
-      let rubricText = typeof rubric === 'string' ? rubric : JSON.stringify(rubric, null, 2);
-
       let promptText = `
-        You are the Elite Rubric Evaluation Engine for NeuroClass.
-        YOUR TASK is to grade a student's uploaded assignment against a customized criteria rubric.
-        
-        INSTRUCTIONS:
-        1. Fully inspect the student's submission (text or OCR handwritten/digitized image).
-        2. Evaluate each criterion in the Rubric strictly and separately.
-        3. Assign an earned score (marks) for each criterion and offer a bulletproof justification outlining exactly where they gained or lost points.
-        4. Detect potential plagiarism or copy-paste markers and provide an estimated Plagiarism confidence level (0 to 100%) and details.
-        5. Compile the final score, percentage, letter grade, and constructive improvement suggestions.
+        You are the NeuroClass AI Assignment & Rubric Grading Agent.
+        Assignment: ${assignmentDescription || 'General Assignment'}
+        Rubric Parameters: ${JSON.stringify(rubric)}
+        Student: ${studentName || 'Student'}
 
-        CONTEXT:
-        - Subject: ${subject || "General Assignment"}
-        - Student Name: ${studentName || "Anonymous Student"}
-        - Assignment Description: ${assignmentDescription || "N/A"}
-        - Evaluation Rubric Guidelines:
-        ${rubricText}
-
-        Return a valid JSON object matching the following structure:
+        Output strictly JSON:
         {
-          "criteriaScores": Array<{
-            "criterionName": string,
-            "maxMarks": number,
-            "scoreObtained": number,
-            "justification": string
-          }>,
-          "totalScore": number,
-          "maxScore": number,
-          "percentage": number,
-          "finalGrade": string,
-          "plagiarismScore": number,
-          "plagiarismDetails": string,
-          "overallJustification": string,
-          "feedbackComments": string,
-          "improvementSuggestions": string[]
+          "finalGrade": "A",
+          "overallJustification": "Outstanding structured research.",
+          "criteriaScores": [
+            {
+              "name": "Content Quality",
+              "maxMarks": 30,
+              "scoreObtained": 28,
+              "justification": "Original insights."
+            }
+          ],
+          "plagiarismScore": 2,
+          "plagiarismDetails": "Original student submission.",
+          "improvementSuggestions": ["Incorporate more primary sources."]
         }
       `;
 
-      parts.push({ text: promptText });
-
-      const parseBase64Image = (dataUrl: string) => {
-        const matches = dataUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-        return matches ? { mimeType: matches[1], data: matches[2] } : null;
-      };
-
-      if (typeof studentSubmission === 'string') {
-        const imgData = parseBase64Image(studentSubmission);
-        if (imgData) {
+      if (studentSubmission.startsWith("data:image/")) {
+        const matches = studentSubmission.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
+        if (matches) {
           parts.push({
-            inlineData: {
-              mimeType: imgData.mimeType,
-              data: imgData.data
-            }
+            inlineData: { mimeType: matches[1], data: matches[2] }
           });
-        } else {
-          parts.push({ text: `Student Submission Document:\n${studentSubmission}` });
         }
+      } else {
+        promptText += `\n\n--- STUDENT SUBMISSION ---\n${studentSubmission}`;
       }
 
+      parts.push({ text: promptText });
+
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         contents: { parts },
         config: {
           responseMimeType: "application/json",
@@ -352,12 +246,7 @@ export async function startBackendServer() {
     }
   });
 
-
-  // =======================================================
-  // x402 PROTOCOL & ALGORAND SETTLEMENT ROUTES
-  // =======================================================
-
-  // 1. Generate Algorand Testnet Wallet for Demo Settlement
+  // x402 Protocol & Algorand Routes
   app.get("/api/x402/demo-wallet", async (_req, res) => {
     try {
       const wallet = algorandService.generateTestnetWallet();
@@ -373,7 +262,6 @@ export async function startBackendServer() {
     }
   });
 
-  // 2. Verify x402 Algorand Settlement Transaction
   app.post("/api/x402/verify", async (req, res) => {
     try {
       const { txId, priceAlgo = 0.10 } = req.body;
@@ -388,7 +276,6 @@ export async function startBackendServer() {
     }
   });
 
-  // 3. AI Test Paper Generation (Protected by x402 - 0.10 ALGO)
   app.post("/api/ai/generate-test", requireX402Payment(0.10), async (req, res) => {
     try {
       const test = await aiGenerationService.generateTest(req.body);
@@ -398,7 +285,6 @@ export async function startBackendServer() {
     }
   });
 
-  // 4. AI Assignment Drafting (Protected by x402 - 0.05 ALGO)
   app.post("/api/ai/generate-assignment", requireX402Payment(0.05), async (req, res) => {
     try {
       const assignment = await aiGenerationService.generateAssignment(req.body);
@@ -408,8 +294,15 @@ export async function startBackendServer() {
     }
   });
 
-  // Vite Middleware
-  if (process.env.NODE_ENV !== "production") {
+  return app;
+}
+
+export async function startBackendServer() {
+  const app = createExpressApp();
+  const PORT = process.env.PORT || 9000;
+
+  // Vite Middleware in monolithic development mode
+  if (process.env.NODE_ENV !== "production" && process.env.DECOUPLED !== "true") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -423,7 +316,7 @@ export async function startBackendServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, () => {
     console.log(`Backend server running on http://localhost:${PORT}`);
   });
 }

@@ -4,6 +4,7 @@ import {
   ArrowRight, FileSpreadsheet, ListFilter, RotateCcw, Play, Check, HelpCircle, X, Plus, BookOpen, Layers, Award, User, Hash, HelpCircle as QuestionIcon, ChevronRight
 } from 'lucide-react';
 import { getEvaluations, saveEvaluation, EvaluationRecord, subscribeToStoreChanges } from '../../../services/evaluationStore';
+import { getApiUrl } from '../../config/apiConfig';
 import { downloadAsExcel } from '../../../services/excelGenerator';
 
 interface AnalyzedQuestion {
@@ -149,7 +150,7 @@ export const TestPaperEvaluator: React.FC = () => {
     }
 
     try {
-      const response = await fetch('/api/analyze-question-paper', {
+      const response = await fetch(getApiUrl('/api/analyze-question-paper'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -211,7 +212,7 @@ export const TestPaperEvaluator: React.FC = () => {
     }
 
     try {
-      const response = await fetch('/api/evaluate/test-paper', {
+      const response = await fetch(getApiUrl('/api/evaluate/test-paper'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
