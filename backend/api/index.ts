@@ -1,10 +1,11 @@
-import { createExpressApp } from "../server";
-
 let app: any;
 
-export default function handler(req: any, res: any) {
+export default async function handler(req: any, res: any) {
   try {
     if (!app) {
+      // Dynamic import inside try-catch to guarantee we catch Vercel boot errors
+      const serverModule = await import("../server.js").catch(() => import("../server"));
+      const createExpressApp = serverModule.createExpressApp || (serverModule as any).default?.createExpressApp;
       app = createExpressApp();
     }
     return app(req, res);
