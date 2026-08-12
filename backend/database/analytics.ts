@@ -1,48 +1,25 @@
-import ReactGA from "react-ga4";
+// Server-side Analytics Helper (No-op / Safe Server Logger)
 
 const GA_MEASUREMENT_ID = process.env.GA_MEASUREMENT_ID || process.env.VITE_GA_MEASUREMENT_ID;
 
 export const initGA = () => {
   if (GA_MEASUREMENT_ID) {
-    ReactGA.initialize(GA_MEASUREMENT_ID);
-    console.log("[Analytics] Initialized GA4");
-  } else {
-    console.warn("[Analytics] Measurement ID missing, GA4 disabled");
+    console.log("[Backend Analytics] GA4 Measurement ID configured:", GA_MEASUREMENT_ID);
   }
 };
 
 export const logPageView = (path: string) => {
-  if (GA_MEASUREMENT_ID) {
-    ReactGA.send({ hitType: "pageview", page: path });
-  }
+  console.log(`[Backend Analytics] Pageview: ${path}`);
 };
 
 export const logEvent = (category: string, action: string, label?: string) => {
-  if (GA_MEASUREMENT_ID) {
-    ReactGA.event({
-      category,
-      action,
-      label,
-    });
-  }
+  console.log(`[Backend Analytics] Event: ${category} -> ${action} (${label || 'N/A'})`);
 };
 
 export const logMalpracticeDetected = (type: string, reason: string) => {
-  if (GA_MEASUREMENT_ID) {
-    ReactGA.event({
-      category: "Proctoring",
-      action: "Malpractice Detected",
-      label: `${type}: ${reason}`,
-    });
-  }
+  console.log(`[Backend Analytics] Malpractice: ${type} - ${reason}`);
 };
 
 export const logClassroomCreated = (className: string) => {
-  if (GA_MEASUREMENT_ID) {
-    ReactGA.event({
-      category: "Management",
-      action: "Classroom Created",
-      label: className,
-    });
-  }
+  console.log(`[Backend Analytics] Classroom Created: ${className}`);
 };
