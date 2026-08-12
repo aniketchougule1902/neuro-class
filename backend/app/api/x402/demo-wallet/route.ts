@@ -12,6 +12,7 @@ export async function GET() {
     return withCors(NextResponse.json({
       address: wallet.address,
       mnemonic: wallet.mnemonic,
+      secretKey: wallet.secretKey,
       balanceAlgo: balance,
       treasuryAddress: NEUROCLASS_TREASURY_ADDRESS
     }));

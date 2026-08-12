@@ -56,7 +56,10 @@ export const ProtocolDashboard = () => {
           secret_key: data.secretKey
         });
 
-      if (insertError) throw new Error('Failed to save wallet securely');
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        throw new Error(`Failed to save wallet securely: ${insertError.message}`);
+      }
 
       setWallet({ ...data, balanceAlgo: 10.0 }); // Demo balance fallback or wait for refresh
     } catch (err: any) {
