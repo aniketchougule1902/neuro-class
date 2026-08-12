@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Users, ShieldCheck, BrainCircuit, BarChart3, Settings, Zap } from 'lucide-react';
-import { supabase } from '../../../database/supabase';
+import { supabase } from '../../database/supabase';
 
 interface ClassroomDetailProps {
   classroomId: string;

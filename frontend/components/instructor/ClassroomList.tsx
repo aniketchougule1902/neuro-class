@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Users, LayoutTemplate, X } from 'lucide-react';
-import { supabase } from '../../../database/supabase';
-import { useAuth } from '../../../context/AuthContext';
-import { cn } from '../../../lib/utils';
+import { supabase } from '../../database/supabase';
+import { useAuth } from '../../context/AuthContext';
+import { cn } from '../../lib/utils';
 
 export const ClassroomList: React.FC<{ onSelect: (id: string) => void }> = ({ onSelect }) => {
   const { user } = useAuth();

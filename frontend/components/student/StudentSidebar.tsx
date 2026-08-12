@@ -1,9 +1,8 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { 
-  LayoutDashboard, Users, UserCheck, Monitor, 
-  FileText, BarChart3, Settings, BrainCircuit, ShieldCheck,
-  Zap, ArrowRight
+  LayoutDashboard, BookOpen, Clock, 
+  FileText, BarChart3, Settings, ArrowRight
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -14,16 +13,13 @@ interface SidebarProps {
   setHovered: (hovered: boolean) => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, isHovered, setHovered }) => {
+export const StudentSidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, isHovered, setHovered }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
-    { id: 'classrooms', label: 'Classrooms', icon: <Users size={20} /> },
-    { id: 'x402', label: 'x402 Protocol', icon: <Zap size={20} /> }, // Algorand Settlements
-    { id: 'attendance', label: 'Attendance', icon: <UserCheck size={20} /> },
-    { id: 'monitoring', label: 'Live Monitoring', icon: <Monitor size={20} /> },
-    { id: 'tests', label: 'Test Designer', icon: <BrainCircuit size={20} /> },
-    { id: 'proctoring', label: 'Proctoring', icon: <ShieldCheck size={20} /> },
-    { id: 'reports', label: 'Analytics', icon: <BarChart3 size={20} /> },
+    { id: 'classes', label: 'My Classes', icon: <BookOpen size={20} /> },
+    { id: 'tests', label: 'Active Tests', icon: <FileText size={20} /> },
+    { id: 'performance', label: 'Performance', icon: <BarChart3 size={20} /> },
+    { id: 'history', label: 'History', icon: <Clock size={20} /> },
     { id: 'settings', label: 'Settings', icon: <Settings size={20} /> },
   ];
 
@@ -46,7 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSectio
             className={cn(
               "w-full flex items-center gap-4 px-4 py-4 rounded-2xl transition-all duration-300 relative group",
               activeSection === item.id 
-                ? "bg-blue-600 shadow-lg shadow-blue-500/30 text-white" 
+                ? "bg-purple-600 shadow-lg shadow-purple-500/30 text-white" 
                 : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white"
             )}
           >
@@ -61,8 +57,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSectio
             
             {activeSection === item.id && (
               <motion.div 
-                layoutId="activeNav"
-                className="absolute inset-0 bg-blue-600 rounded-2xl z-0"
+                layoutId="studentActiveNav"
+                className="absolute inset-0 bg-purple-600 rounded-2xl z-0"
                 transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
               />
             )}

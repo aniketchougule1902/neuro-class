@@ -9,7 +9,7 @@ import Features from './components/common/Features';
 import { Process, DashboardPreview } from './components/common/WorkAndDashboard';
 import { TestSystem, Footer } from './components/common/TestAndFooter';
 import { InstructorDashboard } from './components/instructor/InstructorDashboard';
-import { StudentPortal } from './components/classroom/StudentPortal';
+import { StudentDashboard } from './components/student/StudentDashboard';
 import { AIModuleDashboard } from './components/ai/AIModuleDashboard';
 import { AnimatePresence } from 'motion/react';
 import { AuthModal } from './components/auth/AuthModal';
@@ -59,7 +59,7 @@ const AppContent = () => {
             path="/student/*" 
             element={
               <SessionGuardian allowedRole="student">
-                <StudentPortal />
+                <StudentDashboard />
               </SessionGuardian>
             } 
           />
