@@ -51,12 +51,12 @@ export const algoClient = {
 
       // Create Payment Transaction
       const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-        from: account.addr,
-        to: NEUROCLASS_TREASURY_ADDRESS,
+        sender: account.addr,
+        receiver: NEUROCLASS_TREASURY_ADDRESS,
         amount,
         suggestedParams,
         note: new TextEncoder().encode("NeuroClass AI Request via x402 Protocol")
-      } as any);
+      });
 
       // Sign Transaction
       const signedTxn = txn.signTxn(account.sk);
