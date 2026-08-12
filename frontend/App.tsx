@@ -68,17 +68,18 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  const handleLogin = async (role: 'teacher' | 'student') => {
+  const handleAuthSuccess = async (requestedRole: 'teacher' | 'student') => {
+    setIsAuthModalOpen(false);
+    setAuthLoading(true);
     try {
-      setIsAuthModalOpen(false);
-      setAuthLoading(true);
-      const authUser = await authService.loginWithGoogleOAuth(role);
-      const newRole = await authService.getUserRole(authUser.id);
-      setUserRole(newRole);
-      setActiveTab(newRole === 'student' ? 'student' : 'classroom');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const actualRole = await authService.getUserRole(session.user.id);
+        setUserRole(actualRole);
+        setActiveTab(actualRole === 'student' ? 'student' : 'classroom');
+      }
     } catch (e) {
-      console.error('Google OAuth Sign-In Error:', e);
-      alert('Sign in failed. Please try again.');
+      console.error('Routing Error post-login:', e);
     } finally {
       setAuthLoading(false);
     }
@@ -178,7 +179,7 @@ function App() {
         <AuthModal 
           isOpen={isAuthModalOpen} 
           onClose={() => setIsAuthModalOpen(false)} 
-          onSelectRole={handleLogin} 
+          onSelectRole={handleAuthSuccess} 
         />
       </div>
     </ThemeProvider>

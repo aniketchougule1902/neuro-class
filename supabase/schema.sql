@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   email TEXT NOT NULL,
   displayName TEXT,
   photoURL TEXT,
+  mobile_number TEXT,
   role TEXT DEFAULT 'teacher',
   createdAt TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

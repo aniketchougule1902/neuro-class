@@ -5,51 +5,61 @@ export type AppUser = SupabaseUser;
 
 export const authService = {
   /**
-   * Initiate Google OAuth Sign In flow with popup via Supabase
+   * Sign Up with Email and Password
    */
-  async loginWithGoogleOAuth(requestedRole?: 'teacher' | 'student'): Promise<AppUser> {
-    if (requestedRole) {
-      localStorage.setItem('neuroclass_auth_intent', requestedRole);
-    }
-
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+  async signUpWithEmail(email: string, password: string, name: string, phone: string, role: 'teacher' | 'student'): Promise<AppUser> {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
       options: {
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
+        data: {
+          full_name: name,
         }
       }
     });
-    
+
     if (error) {
       throw error;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (session?.user) {
-      const userRef = session.user;
-      const { data: userDoc } = await supabase.from('users').select('*').eq('uid', userRef.id).single();
+    if (data.user) {
+      const userRef = data.user;
       
-      if (!userDoc) {
-        const intentRole = localStorage.getItem('neuroclass_auth_intent') || 'teacher';
-        
-        await supabase.from('users').insert({
-          uid: userRef.id,
-          email: userRef.email,
-          displayName: userRef.user_metadata?.full_name || '',
-          photoURL: userRef.user_metadata?.avatar_url || '',
-          role: intentRole,
-          createdAt: new Date().toISOString()
-        });
-        
-        localStorage.removeItem('neuroclass_auth_intent');
-      }
+      // Insert user profile into public.users table
+      await supabase.from('users').insert({
+        uid: userRef.id,
+        email: userRef.email,
+        displayName: name,
+        photoURL: '',
+        mobile_number: phone,
+        role: role,
+        createdAt: new Date().toISOString()
+      });
+      
       return userRef;
     }
     
-    throw new Error('OAuth login initiated. Waiting for redirect/popup...');
+    throw new Error('Sign up failed');
+  },
+
+  /**
+   * Sign In with Email and Password
+   */
+  async signInWithEmail(email: string, password: string): Promise<AppUser> {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    if (data.user) {
+      return data.user;
+    }
+
+    throw new Error('Sign in failed');
   },
 
   /**
