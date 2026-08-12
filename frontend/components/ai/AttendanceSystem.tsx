@@ -82,7 +82,7 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
         student_id: match.studentId,
         classroom_id: classId,
         status: 'Present',
-        user_id: currentUser?.uid || currentUser?.email || null,
+        user_id: currentUser?.id || currentUser?.email || null,
         created_at: new Date().toISOString()
       };
 
@@ -158,7 +158,7 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
             student_id: student.id,
             classroom_id: classId,
             status: 'Present',
-            user_id: currentUser?.uid || currentUser?.email || null,
+            user_id: currentUser?.id || currentUser?.email || null,
             created_at: new Date().toISOString()
           };
 
