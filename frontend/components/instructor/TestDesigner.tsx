@@ -300,7 +300,6 @@ export const TestDesigner = () => {
             </AnimatePresence>
           </div>
         </div>
-        </div>
       </div>
 
       <AIGenerationModal 

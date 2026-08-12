@@ -33,7 +33,7 @@ export const algoClient = {
   async getBalance(address: string): Promise<number> {
     const client = getAlgodClient();
     const accountInfo = await client.accountInformation(address).do();
-    return (accountInfo.amount as number) / 1000000;
+    return Number(accountInfo.amount) / 1000000;
   },
 
   /**
@@ -56,18 +56,16 @@ export const algoClient = {
         amount,
         suggestedParams,
         note: new TextEncoder().encode("NeuroClass AI Request via x402 Protocol")
-      });
+      } as any);
 
       // Sign Transaction
       const signedTxn = txn.signTxn(account.sk);
 
       // Submit Transaction
-      const { txId } = await client.sendRawTransaction(signedTxn).do();
+      await client.sendRawTransaction(signedTxn).do();
 
-      // Wait for confirmation (simplified for UI responsiveness, usually we should wait but API will verify)
       // For x402, returning the txId is sufficient since the backend API will verify it.
-      
-      return txId;
+      return txn.txID().toString();
     } catch (e: any) {
       console.error('Algorand Tx Error:', e);
       throw new Error(e.message || 'Transaction failed');
