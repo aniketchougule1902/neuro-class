@@ -111,7 +111,7 @@ const withHandlerErrors = async (c: Context, handler: () => Promise<Response>) =
 x402App.use('*', cors({
   origin: '*',
   allowMethods: ['GET', 'POST', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'PAYMENT-SIGNATURE', 'X-PAYMENT'],
+  allowHeaders: ['Content-Type', 'Authorization', 'PAYMENT-SIGNATURE', 'X-PAYMENT'],
   exposeHeaders: ['PAYMENT-RESPONSE', 'X-402-Transaction-Id'],
 }));
 
