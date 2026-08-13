@@ -66,7 +66,7 @@ NeuroClass uses the official `@x402/hono`, `@x402/core`, `@x402/avm`, and `@x402
 1. **Environment Configuration**:
    Configure the backend with `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `NEUROCLASS_TREASURY_ADDRESS`, `X402_FACILITATOR_URL=https://facilitator.goplausible.xyz`, `X402_TEST_PRICE_USDC_MICRO=100000`, and `X402_ASSIGNMENT_PRICE_USDC_MICRO=50000`. Do not configure a mnemonic for the x402 settlement path. If a separate operational refund process is introduced later, its signer must be a fresh, dedicated wallet stored only in a deployment secret manager; never commit it to Git.
 
-   Configure the frontend with `VITE_BACKEND_URL`, `VITE_ALGOD_SERVER_URL`, and `VITE_NEUROCLASS_TREASURY_ADDRESS`. The user’s Pera Wallet must be on Algorand Testnet, hold Testnet USDC ASA `10458941`, and be opted into that ASA before using paid AI features.
+   Configure the frontend with `VITE_BACKEND_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_ALGOD_SERVER_URL`, and `VITE_NEUROCLASS_TREASURY_ADDRESS`. `VITE_SUPABASE_PUBLISHABLE_KEY` is a browser-safe Supabase publishable key; never use `SUPABASE_SERVICE_ROLE_KEY` in frontend variables. The current project URL is `https://hdjtgyvdlxwntfriqhff.supabase.co`. The user’s Pera Wallet must be on Algorand Testnet, hold Testnet USDC ASA `10458941`, and be opted into that ASA before using paid AI features.
 2. **Build & Run with Docker**:
    ```bash
    docker-compose up --build -d

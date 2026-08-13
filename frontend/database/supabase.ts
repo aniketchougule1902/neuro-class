@@ -1,15 +1,23 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
-const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+const defaultSupabaseUrl = 'https://hdjtgyvdlxwntfriqhff.supabase.co';
+const defaultSupabasePublishableKey = 'sb_publishable_t2cJNXXRJV_ZmOKyKEAHjA_81pd2cbl';
 
-export const isSupabaseConfigured = () => !!supabaseUrl && !!supabaseAnonKey;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || defaultSupabaseUrl;
+const supabaseKey = (
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY
+)?.trim() || defaultSupabasePublishableKey;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase credentials missing. Database sync will not work.');
-}
+export const isSupabaseConfigured = () => Boolean(supabaseUrl && supabaseKey);
 
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co', 
-  supabaseAnonKey || 'placeholder'
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseKey || 'placeholder',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  }
 );

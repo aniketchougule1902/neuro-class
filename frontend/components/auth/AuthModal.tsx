@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, GraduationCap, Monitor, ArrowRight, Sparkles, User, Mail, Lock, Phone } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 import { clsx, type ClassValue } from 'clsx';
-import { authService } from '../../../backend/auth';
+import { authService } from '../../services/authService';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
