@@ -16,6 +16,7 @@ The product value is practical: instructors pay only when they need assessment c
 | Settlement asset | Algorand Testnet USDC ASA `10458941` with six decimals | Provides the stablecoin pay-per-call denomination. |
 | Merchant receiver | `HYNRAYO4IGZRBJ6MWZTBIRAOVWQFZODFDQBSJNQNFSP3TRGV5IYOOAZN5A` | Receives the settled USDC transfer and is opted into the Testnet USDC ASA. |
 | Receipt contract | JSON `x402` object plus `PAYMENT-RESPONSE` and `X-402-Transaction-Id` headers | Proves that the paid response is linked to a facilitator settlement transaction. |
+| Settlement ledger | Supabase `public.x402_payments`, service-role only | Records the verified settlement transaction, network, USDC ASA, micro-USDC amount, payer, endpoint, and facilitator response without storing payer secrets. |
 
 The facilitator-compatible Algorand Testnet CAIP-2 identifier is `algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=`. This full genesis-hash identifier is used in the server route requirements and browser client; the installed AVM package normalizes it to its internal alias when processing transactions.
 
@@ -27,7 +28,8 @@ The facilitator-compatible Algorand Testnet CAIP-2 identifier is `algorand:SGO1G
 4. The browser retries the original request with the standard `PAYMENT-SIGNATURE` header containing the signed AVM payment payload.
 5. The Hono x402 resource server sends the payload to the GoPlausible facilitator. The facilitator verifies the signature, network, asset, amount, receiver, timeout, and transaction validity, then settles the transfer.
 6. Only after successful settlement does the AI handler call the generation service and return the generated content.
-7. The response includes the facilitator’s encoded `PAYMENT-RESPONSE`, the `X-402-Transaction-Id` header, and the JSON object below.
+7. The server records the decoded settlement receipt in the service-role-only `public.x402_payments` ledger using the settlement transaction as the idempotency key. A duplicate transaction is ignored safely.
+8. The response includes the facilitator’s encoded `PAYMENT-RESPONSE`, the `X-402-Transaction-Id` header, and the JSON object below.
 
 ```json
 {
@@ -77,7 +79,7 @@ VITE_X402_NETWORK=algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=
 VITE_X402_USDC_ASSET_ID=10458941
 ```
 
-The merchant account must be opted into the USDC ASA. The payer’s Pera account must hold Testnet USDC and be opted into the same ASA. x402 settlement is facilitator-backed and does not require a merchant mnemonic in the web application. Any future manual refund signer must be a fresh dedicated wallet managed through a deployment secret manager, never a committed file.
+The merchant account must be opted into the USDC ASA. The payer’s Pera account must hold Testnet USDC and be opted into the same ASA. x402 settlement is facilitator-backed and does not require a merchant mnemonic in the web application. The server ledger uses `SUPABASE_SERVICE_ROLE_KEY` and has no anonymous or authenticated policies. Any future manual refund signer must be a fresh dedicated wallet managed through a deployment secret manager, never a committed file. The legacy `public.user_wallets` custodial table has been removed.
 
 ## Validation and live-demo runbook
 

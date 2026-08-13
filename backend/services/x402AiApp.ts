@@ -106,5 +106,5 @@ x402App.post('/api/ai/generate-assignment', async (c) => withHandlerErrors(c, as
 
 export async function handleX402AiRequest(request: Request): Promise<Response> {
   const response = await x402App.fetch(request);
-  return addSettlementReceipt(response);
+  return addSettlementReceipt(request, response);
 }

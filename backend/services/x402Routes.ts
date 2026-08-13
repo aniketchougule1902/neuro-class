@@ -4,6 +4,7 @@ import { HTTPFacilitatorClient } from '@x402/core/server';
 import { decodePaymentResponseHeader } from '@x402/core/http';
 import type { RoutesConfig } from '@x402/core/server';
 import { USDC_TESTNET_ASA_ID } from '@x402/avm';
+import { isSupabaseServiceRoleConfigured, supabase } from '../database/supabase';
 import { ExactAvmScheme } from '@x402/avm/exact/server';
 
 export const X402_FACILITATOR_URL = (
@@ -80,7 +81,49 @@ export const x402PaymentMiddleware = paymentMiddleware(X402_ROUTES, resourceServ
 export const x402App = new Hono();
 x402App.use('*', x402PaymentMiddleware);
 
-export async function addSettlementReceipt(response: Response): Promise<Response> {
+type SettlementReceipt = ReturnType<typeof decodePaymentResponseHeader>;
+
+const parseMicroAmount = (amount: unknown): number | null => {
+  if (typeof amount !== 'string' && typeof amount !== 'number') return null;
+  const value = Number(amount);
+  return Number.isSafeInteger(value) && value > 0 ? value : null;
+};
+
+async function persistSettlementReceipt(
+  request: Request,
+  settlement: SettlementReceipt,
+): Promise<void> {
+  if (!isSupabaseServiceRoleConfigured() || !settlement.transaction) return;
+
+  try {
+    const { error } = await supabase.from('x402_payments').insert({
+      tx_hash: settlement.transaction,
+      amount_algo: null,
+      service_name: request.url.includes('generate-assignment')
+        ? 'NeuroClass AI Assignment Designer'
+        : 'NeuroClass AI Test Designer',
+      payer_address: settlement.payer || null,
+      receiver_address: X402_TREASURY_ADDRESS,
+      status: 'settled',
+      network: settlement.network,
+      asset_id: X402_USDC_ASSET,
+      amount_usdc_micro: parseMicroAmount(settlement.amount),
+      settlement_tx_id: settlement.transaction,
+      request_path: new URL(request.url).pathname,
+      payment_response: settlement,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (error && error.code !== '23505') {
+      console.error('Unable to persist x402 settlement receipt:', error.message);
+    }
+  } catch (error) {
+    console.error('Unable to persist x402 settlement receipt:', error);
+  }
+
+}
+
+export async function addSettlementReceipt(request: Request, response: Response): Promise<Response> {
   const corsHeaders = new Headers(response.headers);
   Object.entries(X402_CORS_HEADERS).forEach(([key, value]) => corsHeaders.set(key, value));
   const corsResponse = new Response(response.body, {
@@ -100,6 +143,8 @@ export async function addSettlementReceipt(response: Response): Promise<Response
   }
 
   if (!settlement.success || !settlement.transaction) return corsResponse;
+
+  await persistSettlementReceipt(request, settlement);
 
   const headers = new Headers(corsResponse.headers);
   headers.set('X-402-Transaction-Id', settlement.transaction);
