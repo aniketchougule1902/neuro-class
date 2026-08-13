@@ -20,7 +20,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
   const [status, setStatus] = useState<'idle' | 'paying' | 'generating' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   
-  const PRICE_ALGO = 0.10;
+  const PRICE_USDC = 0.10;
 
   useEffect(() => {
     const initModal = async () => {
@@ -50,35 +50,32 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
       setErrorMsg('');
       setStatus('paying');
 
-      // 1. Connect and pay via the user's Algorand wallet. No mnemonic is stored or sent.
+      // Pera signs only the x402 payment transaction. NeuroClass never receives a private key.
       const address = wallet?.address || await algoClient.connectWallet();
-      const balanceAlgo = await algoClient.getBalance(address);
+      const balanceAlgo = await algoClient.getBalance(address).catch(() => 0);
       setWallet({ address, balanceAlgo });
-      if (balanceAlgo < PRICE_ALGO + 0.001) throw new Error(`Insufficient Testnet balance. Add at least ${(PRICE_ALGO + 0.001).toFixed(3)} ALGO.`);
-      const txId = await algoClient.payTreasury(PRICE_ALGO, address);
-      
-      // 2. Generate via AI
-      setStatus('generating');
-      const res = await fetch(getApiUrl('/api/ai/generate-test'), {
+
+      // The first request receives HTTP 402; the x402 fetch wrapper asks Pera to sign
+      // the USDC ASA transfer, retries with PAYMENT-SIGNATURE, and returns a settled receipt.
+      const res = await algoClient.fetchWithX402(getApiUrl('/api/ai/generate-test'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-402-payment-txid': txId
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic,
           subject,
           difficulty,
           questionCount,
-          durationMins: questionCount * 2, // Arbitrary calculation
-          totalMarks: questionCount * 10
-        })
+          durationMins: questionCount * 2,
+          totalMarks: questionCount * 10,
+        }),
       });
 
-      const data = await res.json();
-      
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.message || data.error || 'AI Generation Failed');
+      }
+      if (!data.x402?.transactionId) {
+        throw new Error('The API response did not include a settled Algorand transaction receipt.');
       }
 
       setStatus('success');
@@ -154,7 +151,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
                     {status === 'paying' ? 'Executing x402 Protocol...' : 'Synthesizing Test Paper...'}
                   </h3>
                   <p className="text-slate-500 text-sm">
-                    {status === 'paying' ? `Sending ${PRICE_ALGO} ALGO to Treasury on Testnet` : 'NeuroClass AI is generating your requested assessment'}
+                    {status === 'paying' ? `Sign ${PRICE_USDC.toFixed(2)} USDC in Pera Wallet on Algorand Testnet` : 'NeuroClass AI is generating your requested assessment'}
                   </p>
                 </div>
               </div>
@@ -219,7 +216,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-xl font-black text-yellow-600 dark:text-yellow-500">{PRICE_ALGO} ALGO</p>
+                    <p className="text-xl font-black text-yellow-600 dark:text-yellow-500">{PRICE_USDC.toFixed(2)} USDC</p>
                     <p className="text-xs text-slate-500">Testnet</p>
                   </div>
                 </div>

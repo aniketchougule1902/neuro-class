@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-NeuroClass is a next-generation AI-powered educational platform integrated with the **x402 Micropayment Protocol** and **Algorand TestNet** blockchain settlement. To transform the repository's basic structure into a **production-grade enterprise application**, we have engineered a robust architectural framework encompassing rigorous error handling, secure biometric proctoring, verifiable micropayment validation, automated AI agents with strict spending limits, and containerized deployment readiness.
+NeuroClass is a next-generation AI-powered educational platform integrated with the **x402 v2 pay-per-call protocol** and **USDC ASA settlement on Algorand Testnet**. Its primary paying-user use case is an instructor who pays a small USDC amount each time they generate an AI test or assignment. The platform combines rigorous error handling, secure biometric proctoring, facilitator-backed payment verification, and containerized deployment readiness.
 
 ---
 
@@ -39,14 +39,15 @@ The production architecture decouples the client-side futuristic UI from resilie
 
 ## 2. Key Production Enhancements
 
-### A. Algorand x402 Micropayment Verification Gateway
-NeuroClass uses the **x402 protocol** to gate paid AI generation services on Algorand Testnet.
+### A. Standards-Compliant Algorand x402 Gateway
+NeuroClass uses the official `@x402/hono`, `@x402/core`, `@x402/avm`, and `@x402/fetch` packages to gate the two paying-user AI services with exact USDC ASA payments on Algorand Testnet.
 
-- **HTTP 402 Payment Required**: Protected AI routes return a challenge containing the exact ALGO price, Testnet network, service path, and configured treasury address.
-- **Non-custodial wallet signing**: The frontend uses `@perawallet/connect`; users approve the payment in Pera Wallet. NeuroClass never generates, stores, or accepts a browser mnemonic.
-- **On-chain verification**: The backend validates the transaction ID through the Algorand Testnet Indexer, including payment type, exact treasury receiver, and minimum amount.
-- **Replay protection**: Every consumed transaction ID is claimed once in `x402_payments.tx_hash`, with the unique database constraint protecting concurrent retries.
-- **Refund path**: If AI execution fails after payment is consumed, the backend attempts a treasury refund and marks the ledger row `refunded` or `refund_pending`.
+- **Challenge**: `POST /api/ai/generate-test` and `POST /api/ai/generate-assignment` return HTTP `402 Payment Required` with a base64 `PAYMENT-REQUIRED` header containing x402 v2 requirements, the full Algorand Testnet CAIP-2 network, USDC ASA `10458941`, the configured treasury, and the exact micro-USDC price.
+- **Client retry**: The browser uses `@x402/fetch` and the AVM exact client. Pera Wallet signs the transaction group after the initial 402 response, and the wrapper retries the original request with the standard `PAYMENT-SIGNATURE` header.
+- **Facilitator verification and settlement**: The Hono resource server uses `https://facilitator.goplausible.xyz`, which verifies the AVM payload and settles the USDC transfer before the paid handler response is released.
+- **Transaction-linked receipts**: Every successful paid response includes `x402.transactionId`, `x402.network`, `x402.asset`, and the encoded `receiptHeader` in JSON, plus `PAYMENT-RESPONSE` and `X-402-Transaction-Id` response headers.
+- **Pay-per-use pricing**: Test generation defaults to `100000` micro-USDC (`0.10 USDC`) and assignment generation defaults to `50000` micro-USDC (`0.05 USDC`); these are configurable per call route and are not subscriptions.
+- **Non-custodial security**: NeuroClass never generates or stores a browser mnemonic. x402 settlement does not require a treasury private key in the application; any operational refund signer must be managed outside source control and outside the x402 request path.
 
 ### B. Enterprise-Grade Security & Error Handling
 - **Centralized Error Middleware**: Standardized JSON error responses with operational vs. programming error classification.
@@ -63,9 +64,9 @@ NeuroClass uses the **x402 protocol** to gate paid AI generation services on Alg
 ## 3. Production Deployment Instructions
 
 1. **Environment Configuration**:
-   Configure the backend with `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `NEUROCLASS_TREASURY_ADDRESS`, `ALGOD_SERVER_URL`, and `ALGORAND_INDEXER_URL`. Keep `TREASURY_MNEMONIC` server-only and configure it only when automatic refunds are enabled. Set `X402_REQUIRE_LEDGER=true` in production. For local development only, `X402_ALLOW_DEMO_PAYMENTS=true` may be used; never enable it in production.
+   Configure the backend with `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `NEUROCLASS_TREASURY_ADDRESS`, `X402_FACILITATOR_URL=https://facilitator.goplausible.xyz`, `X402_TEST_PRICE_USDC_MICRO=100000`, and `X402_ASSIGNMENT_PRICE_USDC_MICRO=50000`. Do not configure a mnemonic for the x402 settlement path. If a separate operational refund process is introduced later, its signer must be a fresh, dedicated wallet stored only in a deployment secret manager; never commit it to Git.
 
-   Configure the frontend with `VITE_BACKEND_URL`, `VITE_ALGOD_SERVER_URL`, and `VITE_NEUROCLASS_TREASURY_ADDRESS`. Fund a Pera Testnet account from the Algorand Testnet dispenser before using paid AI features.
+   Configure the frontend with `VITE_BACKEND_URL`, `VITE_ALGOD_SERVER_URL`, and `VITE_NEUROCLASS_TREASURY_ADDRESS`. The user’s Pera Wallet must be on Algorand Testnet, hold Testnet USDC ASA `10458941`, and be opted into that ASA before using paid AI features.
 2. **Build & Run with Docker**:
    ```bash
    docker-compose up --build -d
@@ -73,12 +74,17 @@ NeuroClass uses the **x402 protocol** to gate paid AI generation services on Alg
 3. **Database Migration**:
    Execute `supabase/schema.sql` on your PostgreSQL / Supabase instance. The payment ledger is server-managed; do not restore anonymous SELECT or INSERT policies for `x402_payments`.
 4. **Wallet flow**:
-   Open the Protocol Dashboard, connect Pera Wallet on Testnet, and approve the displayed amount. The signed transaction must be confirmed before it is sent to the paid API route.
-5. **Validation**:
+   Open the AI Test Designer, submit the request, observe the HTTP 402 challenge, connect Pera Wallet, and approve the exact USDC ASA transfer. The x402 fetch wrapper retries with `PAYMENT-SIGNATURE`; the facilitator verifies and settles the transfer, then the API returns the generated content together with the Algorand transaction ID receipt.
+5. **Submission use case and five-minute demo**:
+   Demonstrate an instructor generating a test as a real pay-per-call service. In minute one, show the pricing and the unpaid 402 challenge. In minutes two and three, connect Pera, sign the Testnet USDC transfer, and show the retry. In minute four, show the generated test and the `x402.transactionId`; open the Algorand Testnet Explorer to verify the settlement. In minute five, briefly show Facecam attendance/proctoring and explain the business model: instructors pay `0.10 USDC` per generated test or `0.05 USDC` per generated assignment, with no subscription requirement.
+6. **Validation**:
    ```bash
    npm run lint
    npm run build
-   (cd backend && npm run build)
+   (cd backend && npm run typecheck && npm run build)
+   # unpaid challenge smoke test
+   curl -i -X POST "$BACKEND_URL/api/ai/generate-test" -H 'Content-Type: application/json' \
+     --data '{"topic":"Graphs","subject":"Computer Science","difficulty":"Medium","questionCount":5,"durationMins":45,"totalMarks":50}'
    ```
 
 ---

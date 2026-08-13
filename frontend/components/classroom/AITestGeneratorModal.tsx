@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, X, BrainCircuit, Check, AlertCircle, Loader2, Zap } from 'lucide-react';
-import { X402PaymentModal, X402Challenge } from '../payment/X402PaymentModal';
 import { getApiUrl } from '../../config/apiConfig';
+import { algoClient } from '../../services/algoClient';
 
 interface AITestGeneratorModalProps {
   isOpen: boolean;
@@ -26,28 +26,17 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   
-  // x402 Payment Challenge State
-  const [x402Challenge, setX402Challenge] = useState<X402Challenge | null>(null);
-  const [showX402Modal, setShowX402Modal] = useState(false);
 
   if (!isOpen) return null;
 
-  const executeGeneration = async (paymentTxId?: string) => {
+  const executeGeneration = async () => {
     setIsGenerating(true);
     setErrorMsg('');
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
-    };
-
-    if (paymentTxId) {
-      headers['X-402-Payment-TxId'] = paymentTxId;
-    }
-
     try {
-      const response = await fetch(getApiUrl('/api/ai/generate-test'), {
+      const response = await algoClient.fetchWithX402(getApiUrl('/api/ai/generate-test'), {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic,
           subject,
@@ -55,22 +44,9 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
           questionCount,
           durationMins,
           totalMarks,
-          instructions
-        })
+          instructions,
+        }),
       });
-
-      // Handle HTTP 402 Payment Required Challenge
-      if (response.status === 402) {
-        const data = await response.json();
-        if (data.challenge) {
-          setX402Challenge(data.challenge);
-          setShowX402Modal(true);
-        } else {
-          setErrorMsg(data.message || 'Payment required to trigger AI Generation.');
-        }
-        setIsGenerating(false);
-        return;
-      }
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -91,11 +67,7 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    executeGeneration();
-  };
-
-  const handlePaymentSettled = (txId: string) => {
-    executeGeneration(txId);
+    void executeGeneration();
   };
 
   return (
@@ -212,7 +184,7 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
                   <span className="font-bold">x402 Payment Protocol Active</span>
                 </div>
                 <span className="font-mono font-bold text-[11px] bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
-                  0.10 ALGO
+                  0.10 USDC · Testnet
                 </span>
               </div>
 
@@ -229,7 +201,7 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
                 ) : (
                   <>
                     <Sparkles size={18} />
-                    <span>Generate AI Test Paper (0.10 ALGO)</span>
+                    <span>Generate AI Test Paper (0.10 USDC)</span>
                   </>
                 )}
               </button>
@@ -238,12 +210,6 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
         </div>
       </AnimatePresence>
 
-      <X402PaymentModal
-        isOpen={showX402Modal}
-        challenge={x402Challenge}
-        onClose={() => setShowX402Modal(false)}
-        onPaymentSettled={handlePaymentSettled}
-      />
     </>
   );
 };

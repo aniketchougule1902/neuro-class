@@ -1,6 +1,10 @@
 import { PeraWalletConnect } from '@perawallet/connect';
 import algosdk from 'algosdk';
+import { x402Client, wrapFetchWithPayment } from '@x402/fetch';
+import type { ClientAvmSigner } from '@x402/avm';
+import { ExactAvmScheme } from '@x402/avm/exact/client';
 
+const ALGORAND_TESTNET_CAIP2 = import.meta.env.VITE_X402_NETWORK || 'algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=';
 const ALGOD_SERVER = import.meta.env.VITE_ALGOD_SERVER_URL || 'https://testnet-api.algonode.cloud';
 const ALGOD_PORT = Number(import.meta.env.VITE_ALGORAND_PORT || 443);
 
@@ -11,7 +15,7 @@ export const NEUROCLASS_TREASURY_ADDRESS = (
 
 const peraWallet = new PeraWalletConnect({
   chainId: 416002,
-  shouldShowSignTxnToast: true
+  shouldShowSignTxnToast: true,
 });
 
 let algodClient: algosdk.Algodv2 | null = null;
@@ -24,7 +28,35 @@ const getAlgodClient = () => {
 
 const normalizeAccounts = (accounts: unknown): string[] => {
   if (!Array.isArray(accounts)) return [];
-  return accounts.filter((address): address is string => typeof address === 'string' && algosdk.isValidAddress(address));
+  return accounts.filter(
+    (address): address is string => typeof address === 'string' && algosdk.isValidAddress(address),
+  );
+};
+
+const createPeraX402Signer = (address: string): ClientAvmSigner => ({
+  address,
+  async signTransactions(txns: Uint8Array[], indexesToSign?: number[]) {
+    const shouldSign = (index: number) =>
+      !indexesToSign || indexesToSign.includes(index);
+
+    const transactionGroup = txns.map((encoded, index) => ({
+      txn: algosdk.decodeUnsignedTransaction(encoded),
+      signers: shouldSign(index) ? [address] : [],
+    }));
+
+    const signed = await peraWallet.signTransaction([transactionGroup]);
+    return signed.map((encoded) => encoded ?? null);
+  },
+});
+
+const createX402Fetch = (address: string) => {
+  const signer = createPeraX402Signer(address);
+  const client = new x402Client().register(
+    ALGORAND_TESTNET_CAIP2,
+    new ExactAvmScheme(signer, { algodUrl: ALGOD_SERVER }),
+  );
+
+  return wrapFetchWithPayment(globalThis.fetch.bind(globalThis), client);
 };
 
 export const algoClient = {
@@ -55,31 +87,15 @@ export const algoClient = {
     return connectedAddress;
   },
 
+  async fetchWithX402(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    const address = connectedAddress || await this.connectWallet();
+    return createX402Fetch(address)(input, init);
+  },
+
   async getBalance(address: string): Promise<number> {
     if (!algosdk.isValidAddress(address)) throw new Error('Invalid Algorand address');
     const accountInfo = await getAlgodClient().accountInformation(address).do();
     return Number(accountInfo.amount) / 1_000_000;
-  },
-
-  async payTreasury(amountAlgo: number, address = connectedAddress): Promise<string> {
-    if (!address || !algosdk.isValidAddress(address)) throw new Error('Connect an Algorand wallet before paying');
-    if (!Number.isFinite(amountAlgo) || amountAlgo <= 0 || amountAlgo > 100) throw new Error('Invalid payment amount');
-
-    const suggestedParams = await getAlgodClient().getTransactionParams().do();
-    const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-      sender: address,
-      receiver: NEUROCLASS_TREASURY_ADDRESS,
-      amount: Math.ceil(amountAlgo * 1_000_000),
-      suggestedParams,
-      note: new TextEncoder().encode('NeuroClass x402 AI service payment')
-    });
-
-    const signedTransactions = await peraWallet.signTransaction([[{ txn, signers: [address] }]]);
-    if (!signedTransactions?.length) throw new Error('Wallet did not return a signed transaction');
-
-    const { txid } = await getAlgodClient().sendRawTransaction(signedTransactions).do();
-    await this.waitForConfirmation(txid);
-    return txid;
   },
 
   async waitForConfirmation(txId: string, rounds = 30): Promise<void> {
@@ -91,7 +107,7 @@ export const algoClient = {
       await new Promise(resolve => setTimeout(resolve, 1_000));
     }
     throw new Error('Transaction was submitted but not confirmed within the expected time');
-  }
+  },
 };
 
 peraWallet.connector?.on('disconnect', () => {
