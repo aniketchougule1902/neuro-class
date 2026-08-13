@@ -18,23 +18,9 @@ export const X402_TREASURY_ADDRESS = (
   'HYNRAYO4IGZRBJ6MWZTBIRAOVWQFZODFDQBSJNQNFSP3TRGV5IYOOAZN5A'
 ).trim();
 
-const ALLOWED_ORIGINS = (
-  process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173'
-).split(',').map(s => s.trim());
+import { getCorsHeaders } from '../lib/cors';
 
-export function getCorsHeaders(requestOrigin?: string | null): Record<string, string> {
-  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
-    ? requestOrigin
-    : (ALLOWED_ORIGINS[0] || '*');
-
-  return {
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, PAYMENT-SIGNATURE, X-PAYMENT',
-    'Access-Control-Expose-Headers': 'PAYMENT-REQUIRED, PAYMENT-RESPONSE, X-402-Transaction-Id',
-  };
-}
-
+export { getCorsHeaders };
 export const X402_CORS_HEADERS = getCorsHeaders();
 
 export function x402OptionsResponse(request?: Request): Response {
@@ -111,6 +97,18 @@ const requestPathToServiceName = (requestPath: string): string => {
 export const x402PaymentMiddleware = paymentMiddleware(X402_ROUTES, resourceServer);
 
 export const x402App = new Hono();
+
+x402App.use('*', async (c, next) => {
+  const reqOrigin = c.req.header('origin');
+  const headers = getCorsHeaders(reqOrigin);
+  Object.entries(headers).forEach(([k, v]) => c.header(k, v));
+  if (c.req.method === 'OPTIONS') {
+    return c.body(null, 204);
+  }
+  await next();
+  Object.entries(headers).forEach(([k, v]) => c.header(k, v));
+});
+
 x402App.use('*', x402PaymentMiddleware);
 
 type SettlementReceipt = ReturnType<typeof decodePaymentResponseHeader>;

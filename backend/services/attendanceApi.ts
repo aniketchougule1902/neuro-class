@@ -1,11 +1,12 @@
 import { createHash, randomBytes, randomInt } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { supabase, isSupabaseServiceRoleConfigured } from '../database/supabase';
+import { withCors } from '../lib/cors';
 
 const ATTENDANCE_STATUSES = ['Present', 'Late', 'Excused', 'Absent', 'Pending Review'] as const;
 type AttendanceStatus = typeof ATTENDANCE_STATUSES[number];
 
-const json = (body: unknown, status = 200) => NextResponse.json(body, { status });
+const json = (body: unknown, status = 200, req?: Request) => withCors(NextResponse.json(body, { status }), req?.headers.get('origin'));
 
 const clean = (value: unknown, max: number): string =>
   typeof value === 'string' ? value.trim().slice(0, max) : '';

@@ -5,13 +5,17 @@
  */
 
 export const getBackendBaseUrl = (): string => {
-  const env = (import.meta as { env?: { VITE_BACKEND_URL?: string } }).env;
+  const env = (import.meta as { env?: { VITE_BACKEND_URL?: string; PROD?: boolean } }).env;
   const url = env?.VITE_BACKEND_URL;
+  // If building or running in production and VITE_BACKEND_URL points to localhost,
+  // ignore it so requests fall back to same-origin relative paths.
+  if (env?.PROD && url && (url.includes('localhost') || url.includes('127.0.0.1'))) {
+    return '';
+  }
   if (url && url.trim() !== '') {
     return url.replace(/\/$/, '');
   }
-  // Same-origin fallback for deployments where the frontend and Next.js API
-  // routes share a host. Set VITE_BACKEND_URL for a separately hosted backend.
+  // Same-origin fallback for deployments where frontend and backend share host.
   return '';
 };
 
