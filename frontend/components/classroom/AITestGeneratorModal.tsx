@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, X, BrainCircuit, Check, AlertCircle, Loader2, Zap } from 'lucide-react';
 import { getApiUrl } from '../../config/apiConfig';
 import { algoClient } from '../../services/algoClient';
+import { getStoredAISettings } from '../instructor/InstructorSettings';
 
 interface AITestGeneratorModalProps {
   isOpen: boolean;
@@ -15,10 +16,12 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
   onClose,
   onTestGenerated
 }) => {
+  const storedAi = getStoredAISettings();
+
   const [topic, setTopic] = useState('Data Structures & Algorithms');
   const [subject, setSubject] = useState('Computer Science');
-  const [difficulty, setDifficulty] = useState<'Easy' | 'Medium' | 'Hard' | 'Adaptive'>('Medium');
-  const [questionCount, setQuestionCount] = useState(5);
+  const [difficulty, setDifficulty] = useState<'Easy' | 'Medium' | 'Hard' | 'Adaptive'>(storedAi.defaultDifficulty || 'Medium');
+  const [questionCount, setQuestionCount] = useState(storedAi.defaultQuestionCount || 5);
   const [durationMins, setDurationMins] = useState(45);
   const [totalMarks, setTotalMarks] = useState(50);
   const [instructions, setInstructions] = useState('Focus on time complexity analysis and edge case bounds.');

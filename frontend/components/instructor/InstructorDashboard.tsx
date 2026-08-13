@@ -4,6 +4,10 @@ import { ClassroomList } from './ClassroomList';
 import { ClassroomDetail } from './ClassroomDetail';
 import { ProtocolDashboard } from './x402/ProtocolDashboard';
 import { TestDesigner } from './TestDesigner';
+import { InstructorSettings } from './InstructorSettings';
+import { AttendanceSystem } from '../ai/AttendanceSystem';
+import { ProctoringSystem } from '../ai/ProctoringSystem';
+import { AnalyticsDashboard } from '../evaluation/AnalyticsDashboard';
 
 export const InstructorDashboard: React.FC = () => {
   const [activeSection, setActiveSection] = useState('classrooms');
@@ -24,16 +28,32 @@ export const InstructorDashboard: React.FC = () => {
       case 'classrooms':
         return <ClassroomList onSelect={handleSelectClass} />;
       case 'dashboard':
-        return (
-          <div className="p-8">
-            <h2 className="text-3xl font-black mb-4">Dashboard Overview</h2>
-            <p className="text-slate-500">Welcome to your premium instructor portal.</p>
-          </div>
-        );
+        return <ClassroomList onSelect={handleSelectClass} />;
       case 'x402':
         return <ProtocolDashboard />;
       case 'tests':
         return <TestDesigner />;
+      case 'attendance':
+        return (
+          <div className="h-full overflow-y-auto p-6 scrollbar-hide">
+            <AttendanceSystem classId="CS-101" className="Data Structures & Algorithmic Security" />
+          </div>
+        );
+      case 'monitoring':
+      case 'proctoring':
+        return (
+          <div className="h-full overflow-y-auto p-6 scrollbar-hide">
+            <ProctoringSystem />
+          </div>
+        );
+      case 'reports':
+        return (
+          <div className="h-full overflow-y-auto p-6 scrollbar-hide">
+            <AnalyticsDashboard />
+          </div>
+        );
+      case 'settings':
+        return <InstructorSettings />;
       default:
         return (
           <div className="flex items-center justify-center h-full text-slate-400 font-bold uppercase tracking-widest text-sm">
