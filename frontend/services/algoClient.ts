@@ -118,6 +118,37 @@ export const algoClient = {
       const simulatedTxId = 'SIM_' + Array.from({ length: 48 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
       const mockPayer = connectedAddress || 'HYNRAYO4IGZRBJ6MWZTBIRAOVWQFZODFDQBSJNQNFSP3TRGV5IYOOAZN5A';
       const mockPayload = {
+        success: true,
+        test: {
+          title: 'Assessment (Simulated Execution)',
+          subject: 'Computer Science',
+          totalMarks: 50,
+          durationMins: 45,
+          instructions: 'Answer all questions clearly.',
+          questions: [
+            { id: 'q1', questionNumber: 1, text: 'What is the average case time complexity of QuickSort?', type: 'mcq', marks: 10, options: ['O(n log n)', 'O(n^2)', 'O(n)', 'O(log n)'], correctAnswer: 'O(n log n)', explanation: 'Divide and conquer partitioning averages O(n log n).' },
+            { id: 'q2', questionNumber: 2, text: 'Explain the difference between process and thread.', type: 'short-answer', marks: 10, options: null, correctAnswer: 'Processes have independent memory space; threads share process memory.', explanation: 'Threads are lightweight execution units.' },
+            { id: 'q3', questionNumber: 3, text: 'Which data structure uses LIFO order?', type: 'mcq', marks: 10, options: ['Stack', 'Queue', 'Array', 'Tree'], correctAnswer: 'Stack', explanation: 'Last-In-First-Out is used by stacks.' },
+            { id: 'q4', questionNumber: 4, text: 'Define ACID properties in databases.', type: 'short-answer', marks: 10, options: null, correctAnswer: 'Atomicity, Consistency, Isolation, Durability.', explanation: 'Ensures database transaction reliability.' },
+            { id: 'q5', questionNumber: 5, text: 'What is a binary search tree?', type: 'mcq', marks: 10, options: ['Left subtree < root < right subtree', 'Root < all children', 'Heaps only', 'Linear list'], correctAnswer: 'Left subtree < root < right subtree', explanation: 'Ordered tree structure.' }
+          ]
+        },
+        project: {
+          title: 'AI-Powered Distributed System (Simulated)',
+          problemStatement: 'Automate verification and data stream indexing.',
+          mvpScope: '1. Dashboard\n2. Real-time pipeline\n3. Verifiable ledger',
+          technicalArchitecture: 'React + Node.js + Algorand',
+          milestones: [{ phase: 'Phase 1', duration: 'Week 1-2', deliverable: 'Prototype' }],
+          riskMatrix: [{ risk: 'Network delay', mitigation: 'Caching' }],
+          demoPitch: 'Live automated demo.'
+        },
+        assignment: {
+          title: 'Structured Assignment (Simulated)',
+          subject: 'General',
+          totalMarks: 100,
+          instructions: 'Complete all problems.',
+          tasks: [{ taskNumber: 1, prompt: 'Analyze performance bounds.', marks: 100 }]
+        },
         x402: {
           protocolVersion: 2,
           network: 'algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=',

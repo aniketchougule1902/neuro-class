@@ -103,23 +103,27 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
       setPaymentStage('verified');
       setStatus('success');
 
-      const testData = resolution.status === 'authorised' && resolution.data?.test ? resolution.data.test : {
-        title: `${topic} - ${difficulty} Assessment (Simulated)`,
-        subject,
-        totalMarks: questionCount * 10,
-        durationMins: questionCount * 2,
-        instructions: 'Answer all questions clearly.',
-        questions: Array.from({ length: questionCount }, (_, idx) => ({
-          id: `q_${idx + 1}`,
-          questionNumber: idx + 1,
-          text: `Sample question ${idx + 1} regarding ${topic}?`,
-          type: 'mcq',
-          marks: 10,
-          options: ['Option A', 'Option B', 'Option C', 'Option D'],
-          correctAnswer: 'Option A',
-          explanation: 'Simulated answer model for demo execution.',
-        })),
-      };
+      const testData = (resolution.status === 'authorised' && resolution.data?.test)
+        ? resolution.data.test
+        : (resolution.status === 'authorised' && resolution.data?.questions)
+          ? resolution.data
+          : {
+            title: `${topic} - ${difficulty} Assessment (Simulated)`,
+            subject,
+            totalMarks: questionCount * 10,
+            durationMins: questionCount * 2,
+            instructions: 'Answer all questions clearly.',
+            questions: Array.from({ length: questionCount }, (_, idx) => ({
+              id: `q_${idx + 1}`,
+              questionNumber: idx + 1,
+              text: `Sample question ${idx + 1} regarding ${topic}?`,
+              type: 'mcq',
+              marks: 10,
+              options: ['Option A', 'Option B', 'Option C', 'Option D'],
+              correctAnswer: 'Option A',
+              explanation: 'Simulated answer model for demo execution.',
+            })),
+          };
 
       setTimeout(() => {
         onGenerate(testData);

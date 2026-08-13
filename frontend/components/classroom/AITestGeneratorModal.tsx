@@ -86,23 +86,27 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
       setReceipt(mockReceipt);
       setPaymentStage('verified');
       
-      const testData = access.status === 'authorised' && access.data?.test ? access.data.test : {
-        title: `${topic} - ${difficulty} Assessment (Simulated)`,
-        subject,
-        totalMarks,
-        durationMins,
-        instructions: instructions || 'Answer all questions clearly.',
-        questions: Array.from({ length: questionCount }, (_, idx) => ({
-          id: `q_${idx + 1}`,
-          questionNumber: idx + 1,
-          text: `Sample question ${idx + 1} regarding ${topic}?`,
-          type: 'mcq',
-          marks: Math.round(totalMarks / questionCount),
-          options: ['Option A', 'Option B', 'Option C', 'Option D'],
-          correctAnswer: 'Option A',
-          explanation: 'Simulated answer model for demo execution.',
-        })),
-      };
+      const testData = (access.status === 'authorised' && access.data?.test)
+        ? access.data.test
+        : (access.status === 'authorised' && access.data?.questions)
+          ? access.data
+          : {
+            title: `${topic} - ${difficulty} Assessment (Simulated)`,
+            subject,
+            totalMarks,
+            durationMins,
+            instructions: instructions || 'Answer all questions clearly.',
+            questions: Array.from({ length: questionCount }, (_, idx) => ({
+              id: `q_${idx + 1}`,
+              questionNumber: idx + 1,
+              text: `Sample question ${idx + 1} regarding ${topic}?`,
+              type: 'mcq',
+              marks: Math.round(totalMarks / questionCount),
+              options: ['Option A', 'Option B', 'Option C', 'Option D'],
+              correctAnswer: 'Option A',
+              explanation: 'Simulated answer model for demo execution.',
+            })),
+          };
 
       window.setTimeout(() => {
         onTestGenerated(testData);
