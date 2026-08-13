@@ -1,21 +1,31 @@
 import { GoogleGenAI } from '@google/genai';
 
 let aiClient: GoogleGenAI | null = null;
+const ALLOW_SYNTHETIC_FALLBACK = process.env.AI_ALLOW_FALLBACK === 'true' && process.env.NODE_ENV !== 'production';
+
+function parseJsonResponse(text: string) {
+  const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+  const parsed = JSON.parse(cleaned);
+  if (!parsed || typeof parsed !== 'object') throw new Error('AI provider returned invalid JSON');
+  return parsed;
+}
+
+function parseTestResponse(text: string) {
+  const parsed = parseJsonResponse(text);
+  if (!Array.isArray((parsed as any).questions)) throw new Error('AI provider returned an invalid test structure');
+  return parsed;
+}
 
 function getAIClient(): GoogleGenAI {
   if (!aiClient) {
     const key = process.env.GEMINI_API_KEY;
-    if (!key) {
-      // Fallback AI client initialization if key not specified in env
-      aiClient = new GoogleGenAI({ apiKey: 'DEMO_KEY' });
-    } else {
-      aiClient = new GoogleGenAI({
-        apiKey: key,
-        httpOptions: {
-          headers: { 'User-Agent': 'aistudio-build' }
-        }
-      });
-    }
+    if (!key) throw new Error('GEMINI_API_KEY is not configured');
+    aiClient = new GoogleGenAI({
+      apiKey: key,
+      httpOptions: {
+        headers: { 'User-Agent': 'NeuroClass/1.0' }
+      }
+    });
   }
   return aiClient;
 }
@@ -89,10 +99,11 @@ Respond ONLY with valid JSON matching this schema:
       });
 
       const text = response.text || '';
-      return JSON.parse(text);
+      return parseTestResponse(text);
     } catch (err: any) {
-      console.warn('Gemini test generation fallback triggered:', err.message);
-      // Structured fallback if API key is unconfigured or rate limited
+      if (!ALLOW_SYNTHETIC_FALLBACK) throw err;
+      console.warn('Gemini test generation fallback triggered:', err instanceof Error ? err.message : err);
+      // Structured fallback is explicitly opt-in for local development only.
       return {
         title: `${topic} - ${difficulty} Assessment (AI Generated)`,
         subject: subject,
@@ -160,9 +171,10 @@ Respond ONLY in JSON matching this schema:
       });
 
       const text = response.text || '';
-      return JSON.parse(text);
+      return parseJsonResponse(text);
     } catch (err: any) {
-      console.warn('Gemini assignment generation fallback triggered:', err.message);
+      if (!ALLOW_SYNTHETIC_FALLBACK) throw err;
+      console.warn('Gemini assignment generation fallback triggered:', err instanceof Error ? err.message : err);
       return {
         title: `${topic} Applied Assignment`,
         subject: subject,

@@ -120,18 +120,21 @@ CREATE TABLE IF NOT EXISTS public.evaluations (
 );
 
 -- 8. x402 PROTOCOL SETTLEMENT LOGS TABLE
+-- This table is intentionally server-managed. The backend uses SUPABASE_SERVICE_ROLE_KEY.
 CREATE TABLE IF NOT EXISTS public.x402_payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tx_hash TEXT UNIQUE NOT NULL,
-  amount_algo NUMERIC NOT NULL,
+  amount_algo NUMERIC NOT NULL CHECK (amount_algo > 0),
   service_name TEXT NOT NULL,
   payer_address TEXT,
   receiver_address TEXT NOT NULL,
-  status TEXT DEFAULT 'settled',
+  status TEXT NOT NULL DEFAULT 'settled' CHECK (status IN ('settled', 'refund_pending', 'refunded')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+CREATE INDEX IF NOT EXISTS x402_payments_created_at_idx ON public.x402_payments (created_at DESC);
+CREATE INDEX IF NOT EXISTS x402_payments_payer_address_idx ON public.x402_payments (payer_address);
 
--- RLS Row-Level Security Policies (Public Demo Read/Write Access)
+-- RLS Row-Level Security Policies
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.classrooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
@@ -161,5 +164,6 @@ CREATE POLICY "Allow anonymous insert attendance" ON public.attendance FOR INSER
 CREATE POLICY "Allow anonymous select evaluations" ON public.evaluations FOR SELECT USING (true);
 CREATE POLICY "Allow anonymous insert evaluations" ON public.evaluations FOR INSERT WITH CHECK (true);
 
-CREATE POLICY "Allow anonymous select x402" ON public.x402_payments FOR SELECT USING (true);
-CREATE POLICY "Allow anonymous insert x402" ON public.x402_payments FOR INSERT WITH CHECK (true);
+-- Do not expose the payment ledger to anon/authenticated clients. The server service role bypasses RLS.
+DROP POLICY IF EXISTS "Allow anonymous select x402" ON public.x402_payments;
+DROP POLICY IF EXISTS "Allow anonymous insert x402" ON public.x402_payments;

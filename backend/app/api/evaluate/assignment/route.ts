@@ -7,16 +7,8 @@ let aiClient: GoogleGenAI | null = null;
 function getAIClient(): GoogleGenAI {
   if (!aiClient) {
     const key = process.env.GEMINI_API_KEY;
-    if (!key) {
-      aiClient = new GoogleGenAI({ apiKey: 'DEMO_KEY' });
-    } else {
-      aiClient = new GoogleGenAI({
-        apiKey: key,
-        httpOptions: {
-          headers: { 'User-Agent': 'aistudio-build' }
-        }
-      });
-    }
+    if (!key) throw new Error('GEMINI_API_KEY is not configured');
+    aiClient = new GoogleGenAI({ apiKey: key, httpOptions: { headers: { 'User-Agent': 'NeuroClass/1.0' } } });
   }
   return aiClient;
 }
@@ -24,9 +16,12 @@ function getAIClient(): GoogleGenAI {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    if (JSON.stringify(body).length > 12_000_000) {
+      return withCors(NextResponse.json({ error: 'Evaluation payload is too large.' }, { status: 413 }));
+    }
     const { assignmentDescription, rubric, studentSubmission, subject, studentName } = body;
     
-    if (!studentSubmission) {
+    if (typeof studentSubmission !== 'string' || !studentSubmission.trim()) {
       return withCors(NextResponse.json({ error: "Missing student assignment submission." }, { status: 400 }));
     }
 
@@ -79,10 +74,11 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    const responseText = response.text || "{}";
-    const cleaned = responseText.trim().replace(/^```json/, '').replace(/```$/, '');
-    
-    return withCors(NextResponse.json(JSON.parse(cleaned)));
+    const responseText = response.text || '{}';
+    const cleaned = responseText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+    const result = JSON.parse(cleaned);
+    if (!result || typeof result !== 'object' || !Array.isArray(result.criteriaScores)) throw new Error('Assignment evaluator returned an invalid rubric structure');
+    return withCors(NextResponse.json(result));
 
   } catch (err: any) {
     console.error("Assignment Rubric Evaluation Error:", err);

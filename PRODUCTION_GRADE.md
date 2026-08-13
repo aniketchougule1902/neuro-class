@@ -40,10 +40,13 @@ The production architecture decouples the client-side futuristic UI from resilie
 ## 2. Key Production Enhancements
 
 ### A. Algorand x402 Micropayment Verification Gateway
-Unlike standard fiat gateways, NeuroClass uses the **x402 protocol** to gate paid AI agent services (Question Generator, AI Proctor, Answer Evaluator). 
-- **HTTP 402 Payment Required**: Unauthenticated requests to paid endpoints return HTTP 402 with required fee metadata and recipient wallet addresses.
-- **On-Chain Verification**: The backend validates Algorand transaction hashes against TestNet nodes (`algosdk`) ensuring settlement before executing LLM inference.
-- **Agent Spending Governance**: AI autonomous agents operate under strict policy caps (e.g., maximum $0.05 per transaction, $1.00 daily limit).
+NeuroClass uses the **x402 protocol** to gate paid AI generation services on Algorand Testnet.
+
+- **HTTP 402 Payment Required**: Protected AI routes return a challenge containing the exact ALGO price, Testnet network, service path, and configured treasury address.
+- **Non-custodial wallet signing**: The frontend uses `@perawallet/connect`; users approve the payment in Pera Wallet. NeuroClass never generates, stores, or accepts a browser mnemonic.
+- **On-chain verification**: The backend validates the transaction ID through the Algorand Testnet Indexer, including payment type, exact treasury receiver, and minimum amount.
+- **Replay protection**: Every consumed transaction ID is claimed once in `x402_payments.tx_hash`, with the unique database constraint protecting concurrent retries.
+- **Refund path**: If AI execution fails after payment is consumed, the backend attempts a treasury refund and marks the ledger row `refunded` or `refund_pending`.
 
 ### B. Enterprise-Grade Security & Error Handling
 - **Centralized Error Middleware**: Standardized JSON error responses with operational vs. programming error classification.
@@ -60,13 +63,23 @@ Unlike standard fiat gateways, NeuroClass uses the **x402 protocol** to gate pai
 ## 3. Production Deployment Instructions
 
 1. **Environment Configuration**:
-   Copy `.env.example` to `.env` and supply production Supabase, Algorand Node, and Google GenAI API credentials.
+   Configure the backend with `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `NEUROCLASS_TREASURY_ADDRESS`, `ALGOD_SERVER_URL`, and `ALGORAND_INDEXER_URL`. Keep `TREASURY_MNEMONIC` server-only and configure it only when automatic refunds are enabled. Set `X402_REQUIRE_LEDGER=true` in production. For local development only, `X402_ALLOW_DEMO_PAYMENTS=true` may be used; never enable it in production.
+
+   Configure the frontend with `VITE_BACKEND_URL`, `VITE_ALGOD_SERVER_URL`, and `VITE_NEUROCLASS_TREASURY_ADDRESS`. Fund a Pera Testnet account from the Algorand Testnet dispenser before using paid AI features.
 2. **Build & Run with Docker**:
    ```bash
    docker-compose up --build -d
    ```
 3. **Database Migration**:
-   Execute `supabase/schema.sql` on your PostgreSQL / Supabase instance to provision tables, indexes, and RLS policies.
+   Execute `supabase/schema.sql` on your PostgreSQL / Supabase instance. The payment ledger is server-managed; do not restore anonymous SELECT or INSERT policies for `x402_payments`.
+4. **Wallet flow**:
+   Open the Protocol Dashboard, connect Pera Wallet on Testnet, and approve the displayed amount. The signed transaction must be confirmed before it is sent to the paid API route.
+5. **Validation**:
+   ```bash
+   npm run lint
+   npm run build
+   (cd backend && npm run build)
+   ```
 
 ---
 *Prepared by Manus AI for NeuroClass Project*

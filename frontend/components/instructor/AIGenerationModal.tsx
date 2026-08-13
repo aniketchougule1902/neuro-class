@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, X, BrainCircuit, Zap, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { algoClient } from '../../services/algoClient';
-import { supabase } from '../../database/supabase';
+import { getApiUrl } from '../../config/apiConfig';
 
 interface AIGenerationModalProps {
   isOpen: boolean;
@@ -16,7 +16,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
   const [difficulty, setDifficulty] = useState('Medium');
   const [questionCount, setQuestionCount] = useState(5);
   
-  const [wallet, setWallet] = useState<any>(null);
+  const [wallet, setWallet] = useState<{ address: string; balanceAlgo: number } | null>(null);
   const [status, setStatus] = useState<'idle' | 'paying' | 'generating' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   
@@ -28,31 +28,19 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
         setStatus('idle');
         setErrorMsg('');
         
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        
-        const { data, error } = await supabase
-          .from('user_wallets')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
-          
-        if (data) {
-          setWallet(data);
-        } else {
+        const address = await algoClient.reconnectWallet();
+        if (!address) {
           setWallet(null);
+          return;
         }
+        const balanceAlgo = await algoClient.getBalance(address).catch(() => 0);
+        setWallet({ address, balanceAlgo });
       }
     };
     initModal();
   }, [isOpen]);
 
   const handleGenerate = async () => {
-    if (!wallet) {
-      setErrorMsg('No x402 Wallet found. Please initialize it in the Protocol Dashboard.');
-      return;
-    }
-    
     if (!topic || !subject) {
       setErrorMsg('Please provide a Topic and Subject.');
       return;
@@ -62,14 +50,16 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
       setErrorMsg('');
       setStatus('paying');
 
-      // 1. Pay via Algorand
-      const txId = await algoClient.payTreasury(wallet.mnemonic, PRICE_ALGO);
+      // 1. Connect and pay via the user's Algorand wallet. No mnemonic is stored or sent.
+      const address = wallet?.address || await algoClient.connectWallet();
+      const balanceAlgo = await algoClient.getBalance(address);
+      setWallet({ address, balanceAlgo });
+      if (balanceAlgo < PRICE_ALGO + 0.001) throw new Error(`Insufficient Testnet balance. Add at least ${(PRICE_ALGO + 0.001).toFixed(3)} ALGO.`);
+      const txId = await algoClient.payTreasury(PRICE_ALGO, address);
       
       // 2. Generate via AI
       setStatus('generating');
-      const backendUrl = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3000';
-      
-      const res = await fetch(`${backendUrl}/api/ai/generate-test`, {
+      const res = await fetch(getApiUrl('/api/ai/generate-test'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -234,11 +224,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
                   </div>
                 </div>
                 
-                {!wallet && (
-                  <p className="text-xs text-rose-500 text-center font-medium mt-2">
-                    Wallet not initialized. Go to Protocol Dashboard first.
-                  </p>
-                )}
+                <p className="text-xs text-slate-500 text-center font-medium mt-2">
+                  Your wallet signs the payment in-app; NeuroClass never receives your private key.
+                </p>
               </div>
             )}
           </div>
@@ -247,7 +235,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
             <div className="p-6 bg-slate-50 dark:bg-white/5 border-t border-black/5 dark:border-white/10 flex justify-end">
               <button 
                 onClick={handleGenerate}
-                disabled={!wallet}
+                disabled={!topic.trim() || !subject.trim()}
                 className="px-8 py-4 bg-blue-600 text-white rounded-xl font-bold uppercase tracking-widest text-[11px] shadow-lg shadow-blue-500/30 hover:bg-blue-500 transition-all flex items-center gap-2 disabled:opacity-50"
               >
                 <BrainCircuit size={16} /> Pay & Generate
