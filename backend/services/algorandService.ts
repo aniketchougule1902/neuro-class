@@ -7,7 +7,7 @@ const INDEXER_SERVER = process.env.ALGORAND_INDEXER_URL || 'https://testnet-idx.
 const PORT = Number(process.env.ALGORAND_PORT || 443);
 const ALLOW_DEMO_PAYMENTS = process.env.X402_ALLOW_DEMO_PAYMENTS === 'true' && process.env.NODE_ENV !== 'production';
 const TREASURY_MNEMONIC = process.env.TREASURY_MNEMONIC?.trim();
-const DEFAULT_TESTNET_TREASURY = 'ECQ2Y3ZDYKG65YV2VI37AXDK5C26NVVUFN4CU2UFKMF2CHS25T2N53YPCI';
+const DEFAULT_TESTNET_TREASURY = 'HYNRAYO4IGZRBJ6MWZTBIRAOVWQFZODFDQBSJNQNFSP3TRGV5IYOOAZN5A';
 
 // A public receiving address may be committed; the treasury signing key must never be.
 export const NEUROCLASS_TREASURY_ADDRESS = (

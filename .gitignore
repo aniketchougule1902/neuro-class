@@ -9,3 +9,8 @@ coverage/
 .vercel/
 *.local
 .cache/
+
+# Commit templates, never real credentials.
+!.env.example
+!backend/.env.example
+!frontend/.env.example
