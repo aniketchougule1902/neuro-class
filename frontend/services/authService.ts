@@ -47,8 +47,6 @@ export const authService = {
     if (error) throw formatAuthError(error);
     if (!data.user) throw new Error('Sign-up did not return a user. Please try again.');
 
-    localStorage.setItem(`neuroclass_user_role_${data.user.id}`, role);
-
     const { error: profileError } = await supabase.from('users').upsert(
       {
         uid: data.user.id,
@@ -85,8 +83,6 @@ export const authService = {
 
   async setUserRole(uid: string, role: AppRole): Promise<void> {
     if (!uid) return;
-    localStorage.setItem(`neuroclass_user_role_${uid}`, role);
-
     if (isSupabaseConfigured()) {
       try {
         await supabase.from('users').upsert(
@@ -103,35 +99,23 @@ export const authService = {
   },
 
   async getUserRole(uid: string): Promise<AppRole> {
-    if (!uid) return 'student';
-
-    const cached = localStorage.getItem(`neuroclass_user_role_${uid}`);
-    if (cached === 'student' || cached === 'teacher') {
-      return cached;
-    }
-
-    if (!isSupabaseConfigured()) {
-      return 'student';
-    }
+    if (!uid) throw new Error('Cannot resolve a role without an authenticated user.');
+    requireSupabaseConfiguration();
 
     try {
-      const { data: authData } = await supabase.auth.getUser();
-      const metaRole = authData?.user?.user_metadata?.role;
-      if (metaRole === 'student' || metaRole === 'teacher') {
-        localStorage.setItem(`neuroclass_user_role_${uid}`, metaRole);
-        return metaRole;
-      }
-
-      const { data: userRow } = await supabase
+      // The profile row is the source of truth. Do not trust localStorage for authorization.
+      const { data: userRow, error: userError } = await supabase
         .from('users')
         .select('role')
         .eq('uid', uid)
         .maybeSingle();
 
-      if (userRow?.role === 'student' || userRow?.role === 'teacher') {
-        localStorage.setItem(`neuroclass_user_role_${uid}`, userRow.role);
-        return userRow.role;
-      }
+      if (userError) throw userError;
+      if (userRow?.role === 'student' || userRow?.role === 'teacher') return userRow.role;
+
+      const { data: authData } = await supabase.auth.getUser();
+      const metaRole = authData?.user?.user_metadata?.role;
+      if (metaRole === 'student' || metaRole === 'teacher') return metaRole;
 
       const { data: studentRow } = await supabase
         .from('students')
@@ -139,15 +123,12 @@ export const authService = {
         .eq('user_id', uid)
         .maybeSingle();
 
-      if (studentRow) {
-        localStorage.setItem(`neuroclass_user_role_${uid}`, 'student');
-        return 'student';
-      }
+      if (studentRow) return 'student';
     } catch (e) {
       console.warn('Error determining user role:', e);
     }
 
-    return 'student';
+    throw new Error('Your account has no valid portal role. Contact an administrator.');
   },
 
   async logout(): Promise<void> {

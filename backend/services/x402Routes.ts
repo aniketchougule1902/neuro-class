@@ -30,7 +30,7 @@ export function getCorsHeaders(requestOrigin?: string | null): Record<string, st
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, PAYMENT-SIGNATURE, X-PAYMENT',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, PAYMENT-SIGNATURE, X-PAYMENT',
     'Access-Control-Expose-Headers': 'PAYMENT-REQUIRED, PAYMENT-RESPONSE, X-402-Transaction-Id',
   };
 }
@@ -83,11 +83,30 @@ export const X402_ROUTES: RoutesConfig = {
     serviceName: 'NeuroClass AI Assignment Designer',
     tags: ['education', 'assignment', 'ai', 'pay-per-use'],
   },
+  'POST /api/ai/project-idea': {
+    accepts: {
+      scheme: 'exact',
+      network: X402_ALGORAND_NETWORK,
+      payTo: X402_TREASURY_ADDRESS,
+      price: usdcPrice(amountFromEnvironment('X402_PROJECT_IDEA_PRICE_USDC_MICRO', '150000')),
+      maxTimeoutSeconds: 120,
+    },
+    description: 'Generate a structured college or competition project plan for a paying student',
+    mimeType: 'application/json',
+    serviceName: 'NeuroClass AI Project Advisor',
+    tags: ['education', 'project-planning', 'ai', 'student', 'pay-per-use'],
+  },
 };
 
 const facilitatorClient = new HTTPFacilitatorClient({ url: X402_FACILITATOR_URL });
 const resourceServer = new x402ResourceServer(facilitatorClient);
 resourceServer.register(X402_ALGORAND_NETWORK, new ExactAvmScheme());
+
+const requestPathToServiceName = (requestPath: string): string => {
+  if (requestPath.includes('generate-assignment')) return 'NeuroClass AI Assignment Designer';
+  if (requestPath.includes('project-idea')) return 'NeuroClass AI Project Advisor';
+  return 'NeuroClass AI Test Designer';
+};
 
 export const x402PaymentMiddleware = paymentMiddleware(X402_ROUTES, resourceServer);
 
@@ -102,19 +121,29 @@ const parseMicroAmount = (amount: unknown): number | null => {
   return Number.isSafeInteger(value) && value > 0 ? value : null;
 };
 
+export const getAlgorandExplorerUrl = (transactionId: string): string => {
+  const base = (process.env.X402_EXPLORER_BASE_URL || 'https://testnet.explorer.perawallet.app/tx').replace(/\/$/, '');
+  return `${base}/${encodeURIComponent(transactionId)}`;
+};
+
 async function persistSettlementReceipt(
   request: Request,
   settlement: SettlementReceipt,
-): Promise<void> {
-  if (!isSupabaseServiceRoleConfigured() || !settlement.transaction) return;
+): Promise<string | null> {
+  if (!isSupabaseServiceRoleConfigured() || !settlement.transaction) return null;
 
   const requestPath = new URL(request.url).pathname;
   const serviceName = requestPath.includes('generate-assignment')
     ? 'NeuroClass AI Assignment Designer'
-    : 'NeuroClass AI Test Designer';
+    : requestPath.includes('project-idea')
+      ? 'NeuroClass AI Project Advisor'
+      : 'NeuroClass AI Test Designer';
 
   try {
-    const { error: paymentErr } = await supabase.from('x402_payments').insert({
+    const authorization = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+    const { data: ownerAuth } = authorization ? await supabase.auth.getUser(authorization) : { data: { user: null } } as any;
+    const ownerUserId = ownerAuth?.user?.id || null;
+    const paymentRow = {
       tx_hash: settlement.transaction,
       amount_algo: null,
       service_name: serviceName,
@@ -127,26 +156,49 @@ async function persistSettlementReceipt(
       settlement_tx_id: settlement.transaction,
       request_path: requestPath,
       payment_response: settlement,
+      owner_user_id: ownerUserId,
+      verification_status: 'facilitator_verified',
+      verification_error: null,
       updated_at: new Date().toISOString(),
-    });
+    };
 
-    if (paymentErr && paymentErr.code !== '23505') {
+    const { data: payment, error: paymentErr } = await supabase
+      .from('x402_payments')
+      .upsert(paymentRow, { onConflict: 'tx_hash' })
+      .select('id')
+      .single();
+
+    if (paymentErr) {
       console.error('Unable to persist x402 settlement receipt:', paymentErr.message);
+      return null;
     }
 
-    const { error: entitlementErr } = await supabase.from('x402_entitlements').insert({
+    const { error: entitlementErr } = await supabase.from('x402_entitlements').upsert({
       resource_id: requestPath,
       subject_id: settlement.payer || 'anonymous_payer',
       settlement_tx_id: settlement.transaction,
       status: 'active',
       granted_at: new Date().toISOString(),
-    });
+    }, { onConflict: 'settlement_tx_id' });
 
-    if (entitlementErr && entitlementErr.code !== '23505') {
-      console.error('Unable to grant x402 entitlement record:', entitlementErr.message);
-    }
+    if (entitlementErr) console.error('Unable to grant x402 entitlement record:', entitlementErr.message);
+
+    const { error: eventErr } = await supabase.from('x402_payment_events').insert({
+      payment_id: payment.id,
+      event_type: 'settlement_verified',
+      details: {
+        requestPath,
+        transactionId: settlement.transaction,
+        payer: settlement.payer || null,
+        amount: settlement.amount,
+        explorerUrl: getAlgorandExplorerUrl(settlement.transaction),
+      },
+    });
+    if (eventErr && eventErr.code !== '23505') console.error('Unable to persist x402 event:', eventErr.message);
+    return payment.id || null;
   } catch (error) {
     console.error('Unable to persist x402 settlement receipt or entitlement:', error);
+    return null;
   }
 }
 
@@ -173,7 +225,7 @@ export async function addSettlementReceipt(request: Request, response: Response)
 
   if (!settlement.success || !settlement.transaction) return corsResponse;
 
-  await persistSettlementReceipt(request, settlement);
+  const paymentId = await persistSettlementReceipt(request, settlement);
 
   const headers = new Headers(corsResponse.headers);
   headers.set('X-402-Transaction-Id', settlement.transaction);
@@ -203,6 +255,9 @@ export async function addSettlementReceipt(request: Request, response: Response)
         payer: settlement.payer,
         amount: settlement.amount,
         receiptHeader: encodedSettlement,
+        explorerUrl: getAlgorandExplorerUrl(settlement.transaction),
+        serviceName: requestPathToServiceName(new URL(request.url).pathname),
+        paymentId,
       },
     };
 

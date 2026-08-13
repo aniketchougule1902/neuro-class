@@ -1,30 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from "@google/genai";
 import { withCors, handleOptions } from '../../../lib/cors';
+import { boundedJsonSize, boundedString, parseImageDataUrl, requireAuth } from '../../../lib/requireAuth';
 
 let aiClient: GoogleGenAI | null = null;
 
 function getAIClient(): GoogleGenAI {
   if (!aiClient) {
     const key = process.env.GEMINI_API_KEY;
-    if (!key) {
-      aiClient = new GoogleGenAI({ apiKey: 'DEMO_KEY' });
-    } else {
-      aiClient = new GoogleGenAI({
-        apiKey: key,
-        httpOptions: {
-          headers: { 'User-Agent': 'aistudio-build' }
-        }
-      });
-    }
+    if (!key) throw new Error('GEMINI_API_KEY is not configured');
+    aiClient = new GoogleGenAI({
+      apiKey: key,
+      httpOptions: { headers: { 'User-Agent': 'NeuroClass/1.0' } }
+    });
   }
   return aiClient;
 }
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAuth(req);
+    if ('response' in auth) return auth.response;
     const body = await req.json();
-    const { questionPaper, subject } = body;
+    if (!boundedJsonSize(body, 8_000_000)) return withCors(NextResponse.json({ error: 'Question-paper payload is too large.' }, { status: 413 }));
+    const questionPaper = boundedString(body.questionPaper, 7_000_000);
+    const subject = boundedString(body.subject, 160, 'General');
     
     if (!questionPaper) {
       return withCors(NextResponse.json({ error: "Missing question paper content." }, { status: 400 }));
@@ -56,13 +56,10 @@ export async function POST(req: NextRequest) {
       }
     `;
 
-    if (questionPaper.startsWith("data:image/")) {
-      const matches = questionPaper.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
-      if (matches) {
-        parts.push({
-          inlineData: { mimeType: matches[1], data: matches[2] }
-        });
-      }
+    if (questionPaper.startsWith('data:')) {
+      const image = parseImageDataUrl(questionPaper);
+      if (!image) return withCors(NextResponse.json({ error: 'Only bounded PNG, JPEG, or WebP question-paper images are accepted.' }, { status: 400 }));
+      parts.push({ inlineData: image });
     } else {
       promptText += `\n\n--- QUESTION PAPER CONTENT ---\n${questionPaper}`;
     }
@@ -84,8 +81,8 @@ export async function POST(req: NextRequest) {
     return withCors(NextResponse.json(JSON.parse(cleaned)));
 
   } catch (err: any) {
-    console.error("AI Question Paper Parsing Error:", err);
-    return withCors(NextResponse.json({ error: err.message || "Failed to analyze question paper." }, { status: 500 }));
+    console.error('AI Question Paper Parsing Error:', err);
+    return withCors(NextResponse.json({ error: 'Failed to analyze question paper.' }, { status: 500 }));
   }
 }
 

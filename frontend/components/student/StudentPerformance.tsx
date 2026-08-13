@@ -27,22 +27,13 @@ export const StudentPerformance: React.FC = () => {
   const fetchPerformanceData = async () => {
     setLoading(true);
     try {
-      const { data: studentProfiles } = await supabase
-        .from('students')
-        .select('id')
-        .eq('user_id', user!.id);
-
-      const studentIds = (studentProfiles || []).map(s => s.id);
-      if (studentIds.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      const { data: results } = await supabase
-        .from('test_results')
+      const { data: results, error } = await (supabase.from('attempts') as any)
         .select('*, tests(title, total_marks, classrooms(name))')
-        .in('student_id', studentIds)
-        .order('submitted_at', { ascending: true });
+        .eq('student_id', user!.id)
+        .in('status', ['submitted', 'flagged'])
+        .order('submitted_at', { ascending: true })
+        .limit(200);
+      if (error) throw error;
 
       const records = results || [];
       let sumPct = 0;

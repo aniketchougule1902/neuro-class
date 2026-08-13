@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Users, ShieldCheck, BrainCircuit, BarChart3, Settings, Zap } from 'lucide-react';
+import { ArrowLeft, Users, ShieldCheck, BrainCircuit, FileText, BarChart3, Settings, Zap } from 'lucide-react';
 import { supabase } from '../../database/supabase';
+import { AttendanceSystem } from '../ai/AttendanceSystem';
+import { ClassroomMaterialsPanel } from './ClassroomMaterialsPanel';
+import { ClassroomLearningAnalytics } from './ClassroomLearningAnalytics';
 
 interface ClassroomDetailProps {
   classroomId: string;
@@ -10,12 +13,15 @@ interface ClassroomDetailProps {
 
 export const ClassroomDetail: React.FC<ClassroomDetailProps> = ({ classroomId, onBack }) => {
   const [classroom, setClassroom] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'students' | 'tests' | 'x402' | 'proctoring' | 'settings'>('students');
+  const [students, setStudents] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'students' | 'tests' | 'materials' | 'x402' | 'proctoring' | 'settings'>('students');
 
   useEffect(() => {
     const fetchDetails = async () => {
       const { data } = await supabase.from('classrooms').select('*').eq('id', classroomId).single();
+      const { data: roster } = await (supabase.from('students') as any).select('id,name,email,roll_number,face_descriptor').eq('classroom_id', classroomId).order('name');
       if (data) setClassroom(data);
+      setStudents(roster || []);
     };
     fetchDetails();
   }, [classroomId]);
@@ -25,6 +31,7 @@ export const ClassroomDetail: React.FC<ClassroomDetailProps> = ({ classroomId, o
   const tabs = [
     { id: 'students', label: 'Students', icon: <Users size={16} /> },
     { id: 'tests', label: 'Test Designer', icon: <BrainCircuit size={16} /> },
+    { id: 'materials', label: 'Materials', icon: <FileText size={16} /> },
     { id: 'proctoring', label: 'Proctoring', icon: <ShieldCheck size={16} /> },
     { id: 'x402', label: 'x402 Protocol', icon: <Zap size={16} /> },
     { id: 'settings', label: 'Settings', icon: <Settings size={16} /> },
@@ -84,9 +91,21 @@ export const ClassroomDetail: React.FC<ClassroomDetailProps> = ({ classroomId, o
           >
             {activeTab === 'students' && (
               <div className="bg-white dark:bg-white/5 rounded-3xl p-8 border border-black/5 dark:border-white/10 shadow-xl">
-                <h3 className="text-xl font-bold mb-4">Enrolled Students</h3>
-                <p className="text-sm text-slate-500 mb-8">Students will appear here once they join using your classroom code.</p>
-                {/* Student list will be rendered here from the new `students` table */}
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold">Enrolled Students</h3>
+                    <p className="text-sm text-slate-500">Teacher-owned roster for {classroom.name}.</p>
+                  </div>
+                  <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-600">{students.length} enrolled</span>
+                </div>
+                <div className="space-y-3">
+                  {students.length === 0 ? <p className="text-sm text-slate-500">No students have joined with the classroom code yet.</p> : students.map((student) => (
+                    <div key={student.id} className="flex items-center justify-between rounded-2xl border border-black/5 dark:border-white/10 p-4">
+                      <div><p className="font-bold">{student.name}</p><p className="text-xs text-slate-500">{student.email || 'No email'} {student.roll_number ? `· Roll ${student.roll_number}` : ''}</p></div>
+                      <span className={`text-[10px] font-bold uppercase tracking-widest ${student.face_descriptor ? 'text-emerald-500' : 'text-amber-500'}`}>{student.face_descriptor ? 'Biometric ready' : 'Needs registration'}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             
@@ -94,6 +113,20 @@ export const ClassroomDetail: React.FC<ClassroomDetailProps> = ({ classroomId, o
               <div className="bg-white dark:bg-white/5 rounded-3xl p-8 border border-black/5 dark:border-white/10 shadow-xl">
                 <h3 className="text-xl font-bold mb-4">Test Designer</h3>
                 <p className="text-sm text-slate-500">The Test Designer module will be integrated here.</p>
+              </div>
+            )}
+
+            {activeTab === 'materials' && (
+              <div className="space-y-6"><ClassroomMaterialsPanel classroomId={classroom.id} /><ClassroomLearningAnalytics classroomId={classroom.id} /></div>
+            )}
+
+            {activeTab === 'proctoring' && (
+              <div className="space-y-4">
+                <div className="rounded-3xl border border-blue-500/20 bg-blue-500/5 p-6">
+                  <h3 className="text-xl font-bold mb-2">Teacher Attendance Session</h3>
+                  <p className="text-sm text-slate-500 mb-6">Open a time-limited session, scan the classroom roster locally, and write only teacher-authorized attendance records.</p>
+                  <AttendanceSystem classId={classroom.id} className={classroom.name} />
+                </div>
               </div>
             )}
 

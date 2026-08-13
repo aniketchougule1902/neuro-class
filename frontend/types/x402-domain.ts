@@ -17,6 +17,11 @@ export type SettlementReceipt = {
   payer: string;
   amount: string;
   receiptHeader: string;
+  explorerUrl?: string;
+  serviceName?: string;
+  paymentId?: string;
+  verificationStatus?: 'facilitator_verified' | 'chain_verified' | 'pending' | 'not_found' | 'mismatch' | 'verification_unavailable';
+  confirmedRound?: number | null;
 };
 
 export type AccessResolution<T = unknown> =
@@ -71,6 +76,8 @@ export function parseSettlementReceiptHeader(header: string | null): SettlementR
       payer: raw.payer || '',
       amount: String(raw.amount || '0'),
       receiptHeader: header,
+      explorerUrl: raw.explorerUrl || undefined,
+      serviceName: raw.serviceName || undefined,
     };
   } catch {
     return null;

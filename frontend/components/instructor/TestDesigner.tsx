@@ -84,9 +84,11 @@ export const TestDesigner = () => {
         .insert({
           classroom_id: selectedClass,
           title: testTitle,
-          description: testDescription,
-          duration_minutes: duration,
-          questions: questions
+          subject: testDescription || 'General',
+          duration_mins: duration,
+          total_marks: questions.reduce((sum, question) => sum + Math.max(0, Number(question.points) || 0), 0),
+          questions,
+          proctoring_enabled: true
         });
       
       if (error) throw error;
@@ -319,7 +321,7 @@ export const TestDesigner = () => {
               correctAnswer: q.options && q.correctAnswer 
                 ? q.options.indexOf(q.correctAnswer).toString() 
                 : '0',
-              marks: q.marks || 10
+              points: Number(q.marks ?? q.points ?? 10) || 10
             }));
             setQuestions(mappedQuestions);
           }

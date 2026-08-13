@@ -48,8 +48,6 @@ export const StudentOverview: React.FC<StudentOverviewProps> = ({
       const isBio = (studentProfiles || []).some(s => s.face_descriptor != null);
       const enrolledCount = studentProfiles ? studentProfiles.length : 0;
       const classIds = (studentProfiles || []).map(s => s.classroom_id);
-      const studentIds = (studentProfiles || []).map(s => s.id);
-
       // 2. Fetch tests for enrolled classes
       let pendingTests: any[] = [];
       let completedResults: any[] = [];
@@ -61,15 +59,14 @@ export const StudentOverview: React.FC<StudentOverviewProps> = ({
           .in('classroom_id', classIds)
           .order('created_at', { ascending: false });
 
-        if (studentIds.length > 0) {
-          const { data: results } = await supabase
-            .from('test_results')
-            .select('*, tests(*)')
-            .in('student_id', studentIds)
-            .order('submitted_at', { ascending: false });
-
-          completedResults = results || [];
-        }
+        const { data: results, error: attemptsError } = await (supabase.from('attempts') as any)
+          .select('*, tests(*)')
+          .eq('student_id', user!.id)
+          .in('status', ['submitted', 'flagged'])
+          .order('submitted_at', { ascending: false })
+          .limit(200);
+        if (attemptsError) throw attemptsError;
+        completedResults = results || [];
 
         const completedTestIds = new Set(completedResults.map(r => r.test_id));
         pendingTests = (availableTests || []).filter(t => !completedTestIds.has(t.id));
@@ -285,7 +282,7 @@ export const StudentOverview: React.FC<StudentOverviewProps> = ({
                       {t.classrooms?.name || 'Classroom'}
                     </span>
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white">{t.title}</h3>
-                    <p className="text-xs text-slate-500">Duration: {t.duration_minutes} Mins • {t.questions?.length || 0} Questions</p>
+                    <p className="text-xs text-slate-500">Duration: {t.duration_minutes ?? t.duration_mins ?? 45} Mins • {t.questions?.length || 0} Questions</p>
                   </div>
                   <button
                     onClick={() => onStartTest(t.id)}

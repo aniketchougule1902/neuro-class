@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from "@google/genai";
 import { withCors, handleOptions } from '../../../../lib/cors';
+import { boundedJsonSize, boundedString, parseImageDataUrl, requireAuth } from '../../../../lib/requireAuth';
 
 let aiClient: GoogleGenAI | null = null;
 
@@ -15,13 +16,22 @@ function getAIClient(): GoogleGenAI {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAuth(req);
+    if ('response' in auth) return auth.response;
     const body = await req.json();
-    if (JSON.stringify(body).length > 12_000_000) {
+    if (!boundedJsonSize(body, 8_000_000)) {
       return withCors(NextResponse.json({ error: 'Evaluation payload is too large.' }, { status: 413 }));
     }
-    const { assignmentDescription, rubric, studentSubmission, subject, studentName } = body;
+    const assignmentDescription = boundedString(body.assignmentDescription, 8_000);
+    const subject = boundedString(body.subject, 160, 'General');
+    const studentName = boundedString(body.studentName, 160, 'Student');
+    const studentSubmission = boundedString(body.studentSubmission, 7_000_000);
+    const rubric = Array.isArray(body.rubric) ? body.rubric.slice(0, 20).map((item: any) => ({ name: boundedString(item?.name, 120), maxMarks: Math.max(0, Math.min(1000, Number(item?.maxMarks) || 0)) })).filter((item: any) => item.name && item.maxMarks > 0) : [];
+    if (!rubric.length || rubric.reduce((sum: number, item: any) => sum + item.maxMarks, 0) <= 0) {
+      return withCors(NextResponse.json({ error: 'A valid grading rubric is required.' }, { status: 400 }));
+    }
     
-    if (typeof studentSubmission !== 'string' || !studentSubmission.trim()) {
+    if (!studentSubmission) {
       return withCors(NextResponse.json({ error: "Missing student assignment submission." }, { status: 400 }));
     }
 
@@ -52,13 +62,10 @@ export async function POST(req: NextRequest) {
       }
     `;
 
-    if (studentSubmission.startsWith("data:image/")) {
-      const matches = studentSubmission.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
-      if (matches) {
-        parts.push({
-          inlineData: { mimeType: matches[1], data: matches[2] }
-        });
-      }
+    if (studentSubmission.startsWith('data:')) {
+      const image = parseImageDataUrl(studentSubmission);
+      if (!image) return withCors(NextResponse.json({ error: 'Only bounded PNG, JPEG, or WebP image submissions are accepted.' }, { status: 400 }));
+      parts.push({ inlineData: image });
     } else {
       promptText += `\n\n--- STUDENT SUBMISSION ---\n${studentSubmission}`;
     }
@@ -81,8 +88,8 @@ export async function POST(req: NextRequest) {
     return withCors(NextResponse.json(result));
 
   } catch (err: any) {
-    console.error("Assignment Rubric Evaluation Error:", err);
-    return withCors(NextResponse.json({ error: err.message || "Assignment grading failed." }, { status: 500 }));
+    console.error('Assignment Rubric Evaluation Error:', err);
+    return withCors(NextResponse.json({ error: 'Assignment grading failed.' }, { status: 500 }));
   }
 }
 

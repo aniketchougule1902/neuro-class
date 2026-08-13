@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { getEvaluations, saveEvaluation, EvaluationRecord, subscribeToStoreChanges } from '../../services/evaluationStore';
 import { getApiUrl } from '../../config/apiConfig';
+import { supabase } from '../../database/supabase';
 
 export const AssignmentEvaluator: React.FC = () => {
   const [evalList, setEvalList] = useState<EvaluationRecord[]>([]);
@@ -72,9 +73,11 @@ export const AssignmentEvaluator: React.FC = () => {
     }
 
     try {
+      const { data: authSession } = await supabase.auth.getSession();
+      if (!authSession.session?.access_token) throw new Error('Your signed-in session has expired. Please sign in again before grading.');
       const response = await fetch(getApiUrl('/api/evaluate/assignment'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.session.access_token}` },
         body: JSON.stringify({
           assignmentDescription: assignmentDesc,
           rubric: rubricStructure,

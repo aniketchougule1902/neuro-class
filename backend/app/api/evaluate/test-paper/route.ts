@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from "@google/genai";
 import { withCors, handleOptions } from '../../../../lib/cors';
+import { boundedJsonSize, boundedString, parseImageDataUrl, requireAuth } from '../../../../lib/requireAuth';
 
 let aiClient: GoogleGenAI | null = null;
 
@@ -15,13 +16,23 @@ function getAIClient(): GoogleGenAI {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAuth(req);
+    if ('response' in auth) return auth.response;
     const body = await req.json();
-    if (JSON.stringify(body).length > 12_000_000) {
+    if (!boundedJsonSize(body, 8_000_000)) {
       return withCors(NextResponse.json({ error: 'Evaluation payload is too large.' }, { status: 413 }));
     }
-    const { studentAnswerSheet, subject, studentName, analyzedQuestionPaper } = body;
-    
-    if (typeof studentAnswerSheet !== 'string' || !studentAnswerSheet.trim() || !analyzedQuestionPaper) {
+    const studentAnswerSheet = boundedString(body.studentAnswerSheet, 7_000_000);
+    const subject = boundedString(body.subject, 160, 'General');
+    const studentName = boundedString(body.studentName, 160, 'Student');
+    const rawPaper = body.analyzedQuestionPaper;
+    const analyzedQuestionPaper = rawPaper && typeof rawPaper === 'object' ? {
+      title: boundedString(rawPaper.title, 240),
+      subject: boundedString(rawPaper.subject, 160),
+      totalMarks: Math.max(0, Math.min(100000, Number(rawPaper.totalMarks) || 0)),
+      questions: Array.isArray(rawPaper.questions) ? rawPaper.questions.slice(0, 200).map((question: any) => ({ questionNumber: boundedString(question?.questionNumber || question?.number, 40), questionText: boundedString(question?.questionText || question?.text, 2000), maxMarks: Math.max(0, Math.min(1000, Number(question?.maxMarks || question?.marks) || 0)), expectedAnswerSummary: boundedString(question?.expectedAnswerSummary || question?.expectedAnswer, 2500) })) : [],
+    } : null;
+    if (!studentAnswerSheet || !analyzedQuestionPaper || !analyzedQuestionPaper.questions.length) {
       return withCors(NextResponse.json({ error: "Missing student answer sheet or reference question paper." }, { status: 400 }));
     }
 
@@ -57,13 +68,10 @@ export async function POST(req: NextRequest) {
       }
     `;
 
-    if (studentAnswerSheet.startsWith("data:image/")) {
-      const matches = studentAnswerSheet.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
-      if (matches) {
-        parts.push({
-          inlineData: { mimeType: matches[1], data: matches[2] }
-        });
-      }
+    if (studentAnswerSheet.startsWith('data:')) {
+      const image = parseImageDataUrl(studentAnswerSheet);
+      if (!image) return withCors(NextResponse.json({ error: 'Only bounded PNG, JPEG, or WebP answer-sheet images are accepted.' }, { status: 400 }));
+      parts.push({ inlineData: image });
     } else {
       promptText += `\n\n--- STUDENT ANSWER SHEET ---\n${studentAnswerSheet}`;
     }
@@ -86,8 +94,8 @@ export async function POST(req: NextRequest) {
     return withCors(NextResponse.json(result));
 
   } catch (err: any) {
-    console.error("Test Paper Evaluation Error:", err);
-    return withCors(NextResponse.json({ error: err.message || "Evaluation engine failed." }, { status: 500 }));
+    console.error('Test Paper Evaluation Error:', err);
+    return withCors(NextResponse.json({ error: 'Evaluation engine failed.' }, { status: 500 }));
   }
 }
 

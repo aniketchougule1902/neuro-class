@@ -55,8 +55,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSelectR
 
       if (authMode === 'signin') {
         const userResult = await authService.signInWithEmail(email, password);
-        const resolvedRole = await authService.getUserRole(userResult.id);
-        targetRole = role || resolvedRole;
+        // The server-backed profile role is authoritative on sign-in; the UI tab
+        // cannot switch an existing account into another portal.
+        targetRole = await authService.getUserRole(userResult.id);
       } else {
         await authService.signUpWithEmail(email, password, name, phone, targetRole);
       }

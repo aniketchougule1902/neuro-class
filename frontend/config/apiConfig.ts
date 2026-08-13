@@ -1,6 +1,7 @@
 /**
  * API Configuration Utility for Decoupled Vercel Deployment
- * Configured via VITE_BACKEND_URL environment variable.
+ * Configured via VITE_BACKEND_URL environment variable. When unset, requests
+ * stay same-origin so frontend and Next.js API routes work from one deployment.
  */
 
 export const getBackendBaseUrl = (): string => {
@@ -9,7 +10,9 @@ export const getBackendBaseUrl = (): string => {
   if (url && url.trim() !== '') {
     return url.replace(/\/$/, '');
   }
-  return 'http://localhost:9000';
+  // Same-origin fallback for deployments where the frontend and Next.js API
+  // routes share a host. Set VITE_BACKEND_URL for a separately hosted backend.
+  return '';
 };
 
 /**

@@ -32,6 +32,7 @@ import { twMerge } from 'tailwind-merge';
 import { useTheme } from '../../context/ThemeContext';
 
 import { supabase, isSupabaseConfigured } from '../../database/supabase';
+import { getApiUrl } from '../../config/apiConfig';
 import { logClassroomCreated } from '../../database/analytics';
 import { Test, Theme, LayoutModuleType } from '../../types';
 import BuilderTab from '../tabs/BuilderTab';
@@ -1536,31 +1537,45 @@ const FaceIdModule: React.FC<{ user: any, classId: string, onShowToast: any }> =
 
   const logAttendance = async (studentId: string, studentName: string): Promise<boolean> => {
     try {
-      // Idempotency guard: one attendance event per student per classroom/day.
-      const dayStart = new Date();
-      dayStart.setHours(0, 0, 0, 0);
-      const { data: existing, error: lookupError } = await (supabase.from('attendance') as any)
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error('Your teacher session has expired.');
+
+      const { data: openSession, error: sessionError } = await (supabase.from('attendance_sessions') as any)
         .select('id')
         .eq('classroom_id', classId)
-        .eq('student_id', studentId)
-        .gte('verified_at', dayStart.toISOString())
-        .limit(1);
-      if (lookupError) throw lookupError;
-      if (existing?.length) return true;
+        .eq('teacher_id', currentUserId)
+        .eq('status', 'open')
+        .gt('ends_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (sessionError) throw sessionError;
+      if (!openSession?.id) {
+        onShowToast('Open a teacher attendance session before scanning students.', 'warn');
+        return false;
+      }
 
-      const { error } = await (supabase.from('attendance') as any).insert({
-        student_id: studentId,
-        student_name: studentName,
-        classroom_id: classId,
-        status: 'Present',
-        verified_method: 'Face-ID Biometric',
-        verified_at: new Date().toISOString()
+      const response = await fetch(getApiUrl('/api/attendance/teacher-mark'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          classroomId: classId,
+          sessionId: openSession.id,
+          studentId,
+          studentName,
+          mode: 'face-scan'
+        })
       });
-      if (error) throw error;
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 409 && String(payload.error || '').includes('already marked')) return true;
+        throw new Error(payload.error || 'Attendance could not be saved.');
+      }
       return true;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to log attendance:', err);
-      onShowToast('Attendance could not be saved. Check the database connection.', 'error');
+      onShowToast(err?.message || 'Attendance could not be saved. Check the database connection.', 'error');
       return false;
     }
   };

@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, X, BrainCircuit, Check, AlertCircle, Loader2, Zap } from 'lucide-react';
 import { getApiUrl } from '../../config/apiConfig';
+import { supabase } from '../../database/supabase';
 import { algoClient } from '../../services/algoClient';
 import { getStoredAISettings } from '../instructor/InstructorSettings';
+import { PaymentTimeline, type PaymentStage } from '../payments/PaymentTimeline';
+import type { SettlementReceipt } from '../../types/x402-domain';
 
 interface AITestGeneratorModalProps {
   isOpen: boolean;
@@ -27,6 +30,8 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
   const [instructions, setInstructions] = useState('Focus on time complexity analysis and edge case bounds.');
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [paymentStage, setPaymentStage] = useState<PaymentStage>('idle');
+  const [receipt, setReceipt] = useState<SettlementReceipt | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   
 
@@ -34,12 +39,19 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
 
   const executeGeneration = async () => {
     setIsGenerating(true);
+    setPaymentStage('wallet');
+    setReceipt(null);
     setErrorMsg('');
 
     try {
+      await algoClient.connectWallet();
+      setPaymentStage('challenge');
+      setPaymentStage('signing');
+      const { data: authSession } = await supabase.auth.getSession();
+      if (!authSession.session?.access_token) throw new Error('Your signed-in session has expired. Please sign in again before paying.');
       const response = await algoClient.fetchWithX402(getApiUrl('/api/ai/generate-test'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.session.access_token}` },
         body: JSON.stringify({
           topic,
           subject,
@@ -51,19 +63,19 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
         }),
       });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'AI Test Generation service failed.');
-      }
-
-      const result = await response.json();
-      if (result.test) {
-        onTestGenerated(result.test);
+      setPaymentStage('settling');
+      const access = await algoClient.resolveAccess<any>(response);
+      if (access.status !== 'authorised') throw new Error(access.status === 'failed' ? access.error : 'Payment is required before this request can continue.');
+      setReceipt(access.receipt);
+      setPaymentStage('verified');
+      window.setTimeout(() => {
+        onTestGenerated(access.data.test);
+        setIsGenerating(false);
         onClose();
-      }
+      }, 1400);
     } catch (err: any) {
       setErrorMsg(err.message || 'AI Generation service error.');
-    } finally {
+      setPaymentStage('error');
       setIsGenerating(false);
     }
   };
@@ -108,6 +120,8 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
                 <span>{errorMsg}</span>
               </div>
             )}
+
+            {isGenerating && <PaymentTimeline stage={paymentStage} receipt={receipt} error={paymentStage === 'error' ? errorMsg : undefined} priceLabel="0.10 USDC · Algorand Testnet" />}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">

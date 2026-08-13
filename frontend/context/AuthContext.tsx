@@ -36,11 +36,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
+  // This setter is only for synchronizing the role returned by the authenticated
+  // server lookup after sign-in/sign-up. It must never be used as an authorization
+  // mechanism or persisted from arbitrary client input.
   const setUserRole = (role: 'teacher' | 'student') => {
     setUserRoleState(role);
-    if (user?.id) {
-      authService.setUserRole(user.id, role);
-    }
   };
 
   const refreshAuth = async () => {

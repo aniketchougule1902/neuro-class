@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../database/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { StudentAttendanceModal } from './StudentAttendanceModal';
+import { getApiUrl } from '../../config/apiConfig';
 
 interface EnrolledClassDetailProps {
   classroom: any;
@@ -23,7 +23,13 @@ export const EnrolledClassDetail: React.FC<EnrolledClassDetailProps> = ({
   const [loading, setLoading] = useState(true);
   const [tests, setTests] = useState<any[]>([]);
   const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
-  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [appealReason, setAppealReason] = useState('');
+  const [appealSubmitting, setAppealSubmitting] = useState(false);
+  const [appealMessage, setAppealMessage] = useState('');
+  const [activeAttendanceSession, setActiveAttendanceSession] = useState<any>(null);
+  const [attendancePin, setAttendancePin] = useState('');
+  const [attendanceMessage, setAttendanceMessage] = useState('');
+  const [attendanceVerifying, setAttendanceVerifying] = useState(false);
 
   useEffect(() => {
     if (classroom && user) {
@@ -60,11 +66,69 @@ export const EnrolledClassDetail: React.FC<EnrolledClassDetailProps> = ({
           .order('verified_at', { ascending: false });
 
         setAttendanceLogs(attData || []);
+
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData.session?.access_token) {
+          const activeResponse = await fetch(`${getApiUrl('/api/attendance/active')}?classroomId=${encodeURIComponent(classroom.id)}`, {
+            headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
+          });
+          const activePayload = await activeResponse.json().catch(() => ({}));
+          if (activeResponse.ok) setActiveAttendanceSession(activePayload.session || null);
+        }
       }
     } catch (e) {
       console.error('Error fetching classroom detail:', e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const verifyCurrentAttendance = async () => {
+    if (!activeAttendanceSession || !attendancePin.trim()) return;
+    setAttendanceVerifying(true);
+    setAttendanceMessage('');
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.access_token) throw new Error('Please sign in again before verifying attendance.');
+      const response = await fetch(getApiUrl('/api/attendance/verify'), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+          'Content-Type': 'application/json',
+          'Idempotency-Key': crypto.randomUUID(),
+        },
+        body: JSON.stringify({ sessionId: activeAttendanceSession.id, pin: attendancePin.trim() }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Attendance verification failed.');
+      setAttendancePin('');
+      setAttendanceMessage('Attendance verified for this live classroom session.');
+      await fetchClassroomData();
+    } catch (error: any) {
+      setAttendanceMessage(error.message || 'Attendance verification failed.');
+    } finally {
+      setAttendanceVerifying(false);
+    }
+  };
+
+  const submitAttendanceAppeal = async () => {
+    if (!user || !appealReason.trim() || attendanceLogs.length === 0) return;
+    setAppealSubmitting(true);
+    setAppealMessage('');
+    try {
+      const { error } = await (supabase.from('attendance_appeals') as any).insert({
+        attendance_id: attendanceLogs[0].id,
+        classroom_id: classroom.id,
+        student_id: user.id,
+        reason: appealReason.trim(),
+      });
+      if (error) throw error;
+      setAppealReason('');
+      setAppealMessage('Appeal submitted. Your instructor will review it.');
+    } catch (error: any) {
+      setAppealMessage(error.message || 'Could not submit the appeal.');
+    } finally {
+      setAppealSubmitting(false);
     }
   };
 
@@ -99,12 +163,9 @@ export const EnrolledClassDetail: React.FC<EnrolledClassDetailProps> = ({
           <p className="text-xs text-slate-300">Secure proctored assessments & biometric face verification enabled.</p>
         </div>
 
-        <button
-          onClick={() => setIsAttendanceModalOpen(true)}
-          className="px-6 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold uppercase tracking-widest text-xs shadow-lg shadow-emerald-500/30 flex items-center gap-2 shrink-0 transition-all z-10"
-        >
-          <ShieldCheck size={16} /> Mark Facecam Attendance
-        </button>
+        <div className="px-5 py-3.5 rounded-2xl bg-white/10 border border-white/15 text-white/80 text-xs font-bold uppercase tracking-widest flex items-center gap-2 shrink-0 z-10">
+          <ShieldCheck size={16} /> Attendance is instructor-verified
+        </div>
       </div>
 
       {/* Tab Selectors */}
@@ -184,16 +245,40 @@ export const EnrolledClassDetail: React.FC<EnrolledClassDetailProps> = ({
         </div>
       ) : activeTab === 'attendance' ? (
         <div className="space-y-4">
+          {activeAttendanceSession && (
+            <div className="rounded-2xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/70 dark:bg-emerald-500/5 p-5 space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">Live attendance session</p>
+                  <p className="text-xs text-slate-500">Your instructor opened a time-bound session. Enter the PIN shown in the classroom; this does not create a self-service attendance record.</p>
+                </div>
+                <Clock size={18} className="text-emerald-600 shrink-0" />
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  value={attendancePin}
+                  onChange={(event) => setAttendancePin(event.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="6-digit classroom PIN"
+                  className="flex-1 rounded-xl border border-emerald-200 dark:border-white/10 bg-white dark:bg-black/20 p-3 text-sm outline-none focus:border-emerald-500"
+                />
+                <button
+                  onClick={verifyCurrentAttendance}
+                  disabled={attendanceVerifying || attendancePin.length !== 6}
+                  className="rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-white disabled:opacity-40"
+                >
+                  {attendanceVerifying ? 'Verifying…' : 'Verify presence'}
+                </button>
+              </div>
+              {attendanceMessage && <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">{attendanceMessage}</p>}
+            </div>
+          )}
           {attendanceLogs.length === 0 ? (
             <div className="p-12 border border-dashed border-black/10 dark:border-white/10 rounded-3xl text-center space-y-2 text-slate-400 text-xs">
               <ShieldCheck size={40} className="mx-auto opacity-50 mb-2" />
-              <p>No attendance records logged for this class.</p>
-              <button
-                onClick={() => setIsAttendanceModalOpen(true)}
-                className="text-purple-500 font-bold hover:underline"
-              >
-                Perform Facecam Check-In
-              </button>
+              <p>No instructor attendance record has been published for this class yet.</p>
+              <p className="text-[11px] text-slate-500">Students cannot create attendance records. Ask your instructor to open an attendance session.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -218,6 +303,28 @@ export const EnrolledClassDetail: React.FC<EnrolledClassDetailProps> = ({
               ))}
             </div>
           )}
+
+          <div className="mt-6 rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-amber-50/70 dark:bg-amber-500/5 p-5 space-y-3">
+            <div>
+              <p className="text-sm font-bold text-slate-900 dark:text-white">Attendance appeal</p>
+              <p className="text-xs text-slate-500">If your instructor missed a valid attendance entry, submit a reason for manual review.</p>
+            </div>
+            <textarea
+              value={appealReason}
+              onChange={(event) => setAppealReason(event.target.value)}
+              placeholder="Explain the date, class session, and supporting context."
+              rows={3}
+              className="w-full rounded-xl border border-amber-200 dark:border-white/10 bg-white dark:bg-black/20 p-3 text-sm outline-none focus:border-amber-500"
+            />
+            {appealMessage && <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">{appealMessage}</p>}
+            <button
+              onClick={submitAttendanceAppeal}
+              disabled={appealSubmitting || !appealReason.trim() || attendanceLogs.length === 0}
+              className="rounded-xl bg-amber-500 px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-white disabled:opacity-40"
+            >
+              {appealSubmitting ? 'Submitting…' : 'Submit for instructor review'}
+            </button>
+          </div>
         </div>
       ) : (
         <div className="p-8 border border-dashed border-black/10 dark:border-white/10 rounded-3xl text-center text-slate-400 text-xs space-y-2">
@@ -226,14 +333,6 @@ export const EnrolledClassDetail: React.FC<EnrolledClassDetailProps> = ({
         </div>
       )}
 
-      {/* Attendance Check-In Modal */}
-      <StudentAttendanceModal
-        isOpen={isAttendanceModalOpen}
-        classroomId={classroom.id}
-        classroomName={classroom.name}
-        onClose={() => setIsAttendanceModalOpen(false)}
-        onSuccess={() => fetchClassroomData()}
-      />
     </div>
   );
 };

@@ -30,20 +30,19 @@ export const ActiveTests: React.FC<ActiveTestsProps> = ({ onStartTest }) => {
           
         if (studentProfiles) {
            const classIds = studentProfiles.map(s => s.classroom_id);
-           const stuIds = studentProfiles.map(s => s.id);
-
            const { data: availableTests } = await supabase
              .from('tests')
              .select('*, classrooms(name, code)')
              .in('classroom_id', classIds)
              .order('created_at', { ascending: false });
 
-           const { data: completedResults } = await supabase
-             .from('test_results')
-             .select('test_id')
-             .in('student_id', stuIds);
+           const { data: completedAttempts } = await supabase
+             .from('attempts')
+             .select('test_id,status')
+             .eq('student_id', user!.id)
+             .in('status', ['submitted', 'flagged']);
 
-           const completedTestIds = new Set((completedResults || []).map(r => r.test_id));
+           const completedTestIds = new Set((completedAttempts || []).map(r => r.test_id));
            
            const pendingTests = (availableTests || []).filter(t => !completedTestIds.has(t.id));
            setTests(pendingTests);
@@ -110,7 +109,7 @@ export const ActiveTests: React.FC<ActiveTestsProps> = ({ onStartTest }) => {
               <div className="flex items-center gap-4 mb-6">
                 <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">
                   <Clock size={14} />
-                  {test.duration_minutes} Mins
+                  {test.duration_minutes ?? test.duration_mins ?? 45} Mins
                 </div>
                 <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">
                   <BrainCircuit size={14} />

@@ -47,8 +47,13 @@ export const SessionGuardian: React.FC<SessionGuardianProps> = ({ children, allo
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
-  // Role Mismatch
-  if (allowedRole && userRole && userRole !== allowedRole) {
+  // A session without a resolved role is not authorized to enter either portal.
+  // This prevents a stale or tampered client-side role from granting access.
+  if (!userRole) {
+    return <Navigate to="/" state={{ from: location, authError: 'role_unresolved' }} replace />;
+  }
+
+  if (allowedRole && userRole !== allowedRole) {
     return <Navigate to={`/${userRole}`} replace />;
   }
 

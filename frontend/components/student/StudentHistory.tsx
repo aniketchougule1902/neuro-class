@@ -19,23 +19,13 @@ export const StudentHistory: React.FC = () => {
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const { data: studentProfiles } = await supabase
-        .from('students')
-        .select('id')
-        .eq('user_id', user!.id);
-
-      const studentIds = (studentProfiles || []).map(s => s.id);
-      if (studentIds.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      const { data: results } = await supabase
-        .from('test_results')
+      const { data: results, error } = await (supabase.from('attempts') as any)
         .select('*, tests(*, classrooms(name))')
-        .in('student_id', studentIds)
-        .order('submitted_at', { ascending: false });
-
+        .eq('student_id', user!.id)
+        .in('status', ['submitted', 'flagged'])
+        .order('submitted_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
       setHistoryItems(results || []);
     } catch (e) {
       console.error('Error fetching exam history:', e);
