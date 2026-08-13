@@ -60,6 +60,7 @@ export const PaymentTimeline: React.FC<PaymentTimelineProps> = ({ stage, receipt
             <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Settlement receipt</span>
             <span className="text-[10px] text-slate-500">{receipt.amount} micro-USDC</span>
           </div>
+          <div className="flex flex-wrap items-center gap-2 text-[10px]"><span className={`rounded-full px-2 py-1 font-bold uppercase tracking-wider ${receipt.verificationStatus === 'chain_verified' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-blue-500/10 text-blue-700 dark:text-blue-300'}`}>{String(receipt.verificationStatus || 'facilitator_verified').replace(/_/g, ' ')}</span>{receipt.confirmedRound ? <span className="text-slate-500">Round {receipt.confirmedRound}</span> : null}{receipt.paymentId ? <span className="font-mono text-slate-400">Receipt {receipt.paymentId.slice(0, 8)}</span> : null}</div>
           <p className="break-all font-mono text-[11px] text-slate-600 dark:text-slate-300">{receipt.transactionId}</p>
           <div className="flex flex-wrap gap-2">
             <button onClick={copyTransaction} className="inline-flex items-center gap-1 rounded-lg bg-white/70 px-2.5 py-1.5 text-[10px] font-bold text-slate-700 dark:bg-white/10 dark:text-white"><Copy size={12} /> Copy hash</button>

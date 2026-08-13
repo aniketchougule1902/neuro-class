@@ -12,6 +12,7 @@ import { CameraService } from '../../services/ml/CameraService';
 import { LocalMLService } from '../../services/ml/LocalMLService';
 import ExamPortal from '../exams/ExamPortal';
 import { AssignmentEvaluator } from '../evaluation/AssignmentEvaluator';
+import { getApiUrl } from '../../config/apiConfig';
 
 import { ClassroomDetailViewStudent } from './ClassroomDetailViewStudent';
 import { twMerge } from 'tailwind-merge';
@@ -268,18 +269,19 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({ user, onClose }) =
       const enrollment = enrolledClasses.find(ec => ec.classroom_id === test.classroom_id);
       if (!enrollment) throw new Error("Enrollment not found for this class");
 
-      // Create an attempt
-      const { data, error } = await (supabase.from('attempts') as any).insert({
-        test_id: test.id,
-        student_id: enrollment.id,
-        status: 'ongoing',
-        started_at: new Date().toISOString(),
-        violations: []
-      }).select().single();
-
-      if (error) throw error;
-      
-      setCurrentAttemptId(data.id);
+      const { data: authSession } = await supabase.auth.getSession();
+      if (!authSession.session?.access_token) throw new Error('Your signed-in session has expired. Please sign in again.');
+      const response = await fetch(getApiUrl('/api/exams/attempt/start'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authSession.session.access_token}`
+        },
+        body: JSON.stringify({ testId: test.id })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.attemptId) throw new Error(payload.error || 'Failed to initialize test attempt.');
+      setCurrentAttemptId(payload.attemptId);
       setSelectedTest(test);
     } catch (err: any) {
       console.error('Failed to start test attempt:', err);

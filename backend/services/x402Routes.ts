@@ -129,8 +129,8 @@ export const getAlgorandExplorerUrl = (transactionId: string): string => {
 async function persistSettlementReceipt(
   request: Request,
   settlement: SettlementReceipt,
-): Promise<void> {
-  if (!isSupabaseServiceRoleConfigured() || !settlement.transaction) return;
+): Promise<string | null> {
+  if (!isSupabaseServiceRoleConfigured() || !settlement.transaction) return null;
 
   const requestPath = new URL(request.url).pathname;
   const serviceName = requestPath.includes('generate-assignment')
@@ -140,6 +140,9 @@ async function persistSettlementReceipt(
       : 'NeuroClass AI Test Designer';
 
   try {
+    const authorization = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+    const { data: ownerAuth } = authorization ? await supabase.auth.getUser(authorization) : { data: { user: null } } as any;
+    const ownerUserId = ownerAuth?.user?.id || null;
     const paymentRow = {
       tx_hash: settlement.transaction,
       amount_algo: null,
@@ -153,6 +156,9 @@ async function persistSettlementReceipt(
       settlement_tx_id: settlement.transaction,
       request_path: requestPath,
       payment_response: settlement,
+      owner_user_id: ownerUserId,
+      verification_status: 'facilitator_verified',
+      verification_error: null,
       updated_at: new Date().toISOString(),
     };
 
@@ -164,7 +170,7 @@ async function persistSettlementReceipt(
 
     if (paymentErr) {
       console.error('Unable to persist x402 settlement receipt:', paymentErr.message);
-      return;
+      return null;
     }
 
     const { error: entitlementErr } = await supabase.from('x402_entitlements').upsert({
@@ -189,8 +195,10 @@ async function persistSettlementReceipt(
       },
     });
     if (eventErr && eventErr.code !== '23505') console.error('Unable to persist x402 event:', eventErr.message);
+    return payment.id || null;
   } catch (error) {
     console.error('Unable to persist x402 settlement receipt or entitlement:', error);
+    return null;
   }
 }
 
@@ -217,7 +225,7 @@ export async function addSettlementReceipt(request: Request, response: Response)
 
   if (!settlement.success || !settlement.transaction) return corsResponse;
 
-  await persistSettlementReceipt(request, settlement);
+  const paymentId = await persistSettlementReceipt(request, settlement);
 
   const headers = new Headers(corsResponse.headers);
   headers.set('X-402-Transaction-Id', settlement.transaction);
@@ -249,6 +257,7 @@ export async function addSettlementReceipt(request: Request, response: Response)
         receiptHeader: encodedSettlement,
         explorerUrl: getAlgorandExplorerUrl(settlement.transaction),
         serviceName: requestPathToServiceName(new URL(request.url).pathname),
+        paymentId,
       },
     };
 

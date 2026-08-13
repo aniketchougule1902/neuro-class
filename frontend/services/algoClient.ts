@@ -131,6 +131,7 @@ export const algoClient = {
             ...receipt,
             explorerUrl: typeof enrichedReceipt?.explorerUrl === 'string' ? enrichedReceipt.explorerUrl : receipt.explorerUrl,
             serviceName: typeof enrichedReceipt?.serviceName === 'string' ? enrichedReceipt.serviceName : receipt.serviceName,
+            paymentId: typeof enrichedReceipt?.paymentId === 'string' ? enrichedReceipt.paymentId : undefined,
           },
           data: data as T,
         };
@@ -149,6 +150,7 @@ export const algoClient = {
             receiptHeader: String(x402Obj.receiptHeader || ''),
             explorerUrl: typeof x402Obj.explorerUrl === 'string' ? x402Obj.explorerUrl : undefined,
             serviceName: typeof x402Obj.serviceName === 'string' ? x402Obj.serviceName : undefined,
+            paymentId: typeof x402Obj.paymentId === 'string' ? x402Obj.paymentId : undefined,
           },
           data: data as T,
         };

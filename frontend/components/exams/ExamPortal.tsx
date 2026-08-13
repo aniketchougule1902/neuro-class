@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Test, Question, QuestionType, LayoutModuleType } from '../../types';
 import { supabase } from '../../database/supabase';
+import { getApiUrl } from '../../config/apiConfig';
 
 interface ExamPortalProps {
   test: Test;
@@ -40,6 +41,8 @@ export default function ExamPortal({ test, attemptId, onExit, isDemo = false }: 
   const [violations, setViolations] = useState<{ type: string, time: string }[]>([]);
   const [warning, setWarning] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [serverScore, setServerScore] = useState<{ earned: number; total: number } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const getContrastColor = (hex: string) => {
     if (!hex || hex.length < 7) return '#0f172a';
@@ -244,15 +247,15 @@ export default function ExamPortal({ test, attemptId, onExit, isDemo = false }: 
     
     if (!isDemo && attemptId) {
       try {
-        // Fetch current violations first to append
-        const { data } = await (supabase.from('attempts') as any).select('violations').eq('id', attemptId).single();
-        const existingViolations = data?.violations || [];
-        await (supabase.from('attempts') as any).update({ 
-          violations: [...existingViolations, newViolation],
-          status: 'flagged' // Flag attempt if violation occurs
-        }).eq('id', attemptId);
+        const { data: session } = await supabase.auth.getSession();
+        if (!session.session?.access_token) return;
+        await fetch(getApiUrl('/api/exams/attempt/violation'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.session.access_token}` },
+          body: JSON.stringify({ attemptId, type, screenshot: newViolation.screenshot })
+        });
       } catch (err) {
-        console.error('Failed to log violation to Supabase:', err);
+        console.error('Failed to log violation to server:', err);
       }
     }
   };
@@ -341,34 +344,33 @@ export default function ExamPortal({ test, attemptId, onExit, isDemo = false }: 
   };
 
   const handleSubmit = async () => {
-    if (isDemo) {
-        setIsSubmitted(true);
-        return;
+    if (isDemo || isSubmitting || isSubmitted) {
+      if (isDemo) setIsSubmitted(true);
+      return;
     }
-    
-    const scoreResult = calculateScore();
-    const finalScore = Math.max(0, scoreResult.earned); // Ensure no negative final scores
-    
+    setIsSubmitting(true);
     try {
-      const { error } = await (supabase.from('attempts') as any).update({
-        score: finalScore,
-        answers: answers,
-        status: 'submitted',
-        finished_at: new Date().toISOString(),
-        submitted_at: new Date().toISOString()
-      }).eq('id', attemptId);
-      
-      if (error) throw error;
-      
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.access_token) throw new Error('Your signed-in session has expired.');
+      const response = await fetch(getApiUrl('/api/exams/attempt/submit'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.session.access_token}` },
+        body: JSON.stringify({ attemptId, answers, violations })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.submitted) throw new Error(payload.error || 'Unable to submit the exam.');
+      if (typeof payload.score === 'number' && typeof payload.total === 'number') setServerScore({ earned: payload.score, total: payload.total });
       setIsSubmitted(true);
     } catch (err: any) {
       console.error('Failed to submit exam attempt:', err);
-      alert('CRITICAL ERROR: Failed to submit your exam to the server. Please check your internet connection and try again. Error: ' + (err.message || 'Unknown network error'));
+      alert('CRITICAL ERROR: Failed to submit your exam to the server. Please check your internet connection and try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   if (isSubmitted) {
-    const score = calculateScore();
+    const score = serverScore || { earned: 0, total: 0 };
     return (
       <div className="fixed inset-0 z-[200] bg-white flex flex-col items-center justify-center p-10 text-center font-sans">
         <motion.div 

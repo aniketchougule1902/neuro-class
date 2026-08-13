@@ -16,6 +16,7 @@ export const ProtocolDashboard = () => {
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [payments, setPayments] = useState<any[]>([]);
+  const [verifyingPaymentId, setVerifyingPaymentId] = useState<string | null>(null);
 
   const loadPaymentLogs = async (address: string) => {
     const { data } = await supabase.auth.getSession();
@@ -46,6 +47,23 @@ export const ProtocolDashboard = () => {
       setError(err instanceof Error ? err.message : 'Wallet connection failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const verifyPayment = async (paymentId: string) => {
+    setVerifyingPaymentId(paymentId);
+    setError('');
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.access_token) throw new Error('Your signed-in session has expired.');
+      const response = await fetch(getApiUrl('/api/x402/verify'), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` }, body: JSON.stringify({ paymentId }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Payment reconciliation failed.');
+      setPayments((current) => current.map((payment) => payment.id === paymentId ? { ...payment, verification_status: body.receipt.verificationStatus, verified_at: body.receipt.verifiedAt, confirmed_round: body.receipt.confirmedRound, verification_error: body.receipt.verificationError } : payment));
+    } catch (err: any) {
+      setError(err.message || 'Payment reconciliation failed.');
+    } finally {
+      setVerifyingPaymentId(null);
     }
   };
 
@@ -131,7 +149,7 @@ export const ProtocolDashboard = () => {
 
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl dark:border-white/10 dark:bg-white/5">
           <div className="mb-5 flex items-center justify-between gap-3"><div><h3 className="text-lg font-bold">Verified payment log</h3><p className="text-xs text-slate-500">Settlements persisted by the x402 backend for this wallet.</p></div><button onClick={() => wallet && loadPaymentLogs(wallet.address)} className="rounded-xl bg-slate-100 p-2 dark:bg-white/10"><RefreshCw size={15} /></button></div>
-          {payments.length === 0 ? <p className="text-sm text-slate-500">No settled payments for this wallet yet. Complete a paid AI request to populate the ledger.</p> : <div className="space-y-3">{payments.map((payment) => <div key={payment.id} className="rounded-2xl border border-black/5 p-4 dark:border-white/10"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-bold">{payment.service_name}</p><p className="text-[10px] uppercase tracking-widest text-slate-500">{payment.status} · {payment.amount_usdc_micro || 0} micro-USDC</p></div><span className="text-xs text-slate-500">{payment.created_at ? new Date(payment.created_at).toLocaleString() : ''}</span></div>{payment.settlement_tx_id && <div className="mt-3 flex flex-wrap items-center gap-3"><code className="break-all text-[11px] text-slate-500">{payment.settlement_tx_id}</code><a href={payment.explorerUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[10px] font-bold text-white">Verify <ExternalLink size={12} /></a></div>}</div>)}</div>}
+          {payments.length === 0 ? <p className="text-sm text-slate-500">No securely account-bound settled payments for this wallet yet. Complete a paid AI request while signed in to populate the ledger.</p> : <div className="space-y-3">{payments.map((payment) => <div key={payment.id} className="rounded-2xl border border-black/5 p-4 dark:border-white/10"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-bold">{payment.service_name}</p><p className="text-[10px] uppercase tracking-widest text-slate-500">{payment.status} · {payment.amount_usdc_micro || 0} micro-USDC</p></div><span className="text-xs text-slate-500">{payment.created_at ? new Date(payment.created_at).toLocaleString() : ''}</span></div>{payment.settlement_tx_id && <div className="mt-3 space-y-2"><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${payment.verification_status === 'chain_verified' ? 'bg-emerald-500/10 text-emerald-600' : payment.verification_status === 'mismatch' ? 'bg-rose-500/10 text-rose-600' : 'bg-amber-500/10 text-amber-600'}`}>{String(payment.verification_status || 'facilitator_verified').replace(/_/g, ' ')}</span>{payment.confirmed_round && <span className="text-[10px] text-slate-500">Round {payment.confirmed_round}</span>}</div><code className="block break-all text-[11px] text-slate-500">{payment.settlement_tx_id}</code><div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => void verifyPayment(payment.id)} disabled={verifyingPaymentId === payment.id} className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1.5 text-[10px] font-bold text-white disabled:opacity-50">{verifyingPaymentId === payment.id ? <RefreshCw className="animate-spin" size={12} /> : <ShieldCheck size={12} />} Reconcile chain</button><a href={payment.explorerUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[10px] font-bold text-white">Explorer <ExternalLink size={12} /></a></div>{payment.verification_error && <p className="text-xs text-amber-600">{payment.verification_error}</p>}</div>}</div>)}</div>}
         </div>
         </div>
       )}

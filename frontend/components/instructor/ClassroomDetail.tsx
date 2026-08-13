@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Users, ShieldCheck, BrainCircuit, BarChart3, Settings, Zap } from 'lucide-react';
+import { ArrowLeft, Users, ShieldCheck, BrainCircuit, FileText, BarChart3, Settings, Zap } from 'lucide-react';
 import { supabase } from '../../database/supabase';
 import { AttendanceSystem } from '../ai/AttendanceSystem';
+import { ClassroomMaterialsPanel } from './ClassroomMaterialsPanel';
+import { ClassroomLearningAnalytics } from './ClassroomLearningAnalytics';
 
 interface ClassroomDetailProps {
   classroomId: string;
@@ -12,7 +14,7 @@ interface ClassroomDetailProps {
 export const ClassroomDetail: React.FC<ClassroomDetailProps> = ({ classroomId, onBack }) => {
   const [classroom, setClassroom] = useState<any>(null);
   const [students, setStudents] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'students' | 'tests' | 'x402' | 'proctoring' | 'settings'>('students');
+  const [activeTab, setActiveTab] = useState<'students' | 'tests' | 'materials' | 'x402' | 'proctoring' | 'settings'>('students');
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -29,6 +31,7 @@ export const ClassroomDetail: React.FC<ClassroomDetailProps> = ({ classroomId, o
   const tabs = [
     { id: 'students', label: 'Students', icon: <Users size={16} /> },
     { id: 'tests', label: 'Test Designer', icon: <BrainCircuit size={16} /> },
+    { id: 'materials', label: 'Materials', icon: <FileText size={16} /> },
     { id: 'proctoring', label: 'Proctoring', icon: <ShieldCheck size={16} /> },
     { id: 'x402', label: 'x402 Protocol', icon: <Zap size={16} /> },
     { id: 'settings', label: 'Settings', icon: <Settings size={16} /> },
@@ -111,6 +114,10 @@ export const ClassroomDetail: React.FC<ClassroomDetailProps> = ({ classroomId, o
                 <h3 className="text-xl font-bold mb-4">Test Designer</h3>
                 <p className="text-sm text-slate-500">The Test Designer module will be integrated here.</p>
               </div>
+            )}
+
+            {activeTab === 'materials' && (
+              <div className="space-y-6"><ClassroomMaterialsPanel classroomId={classroom.id} /><ClassroomLearningAnalytics classroomId={classroom.id} /></div>
             )}
 
             {activeTab === 'proctoring' && (

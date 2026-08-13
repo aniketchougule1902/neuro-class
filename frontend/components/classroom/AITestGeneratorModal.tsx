@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, X, BrainCircuit, Check, AlertCircle, Loader2, Zap } from 'lucide-react';
 import { getApiUrl } from '../../config/apiConfig';
+import { supabase } from '../../database/supabase';
 import { algoClient } from '../../services/algoClient';
 import { getStoredAISettings } from '../instructor/InstructorSettings';
 import { PaymentTimeline, type PaymentStage } from '../payments/PaymentTimeline';
@@ -46,9 +47,11 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
       await algoClient.connectWallet();
       setPaymentStage('challenge');
       setPaymentStage('signing');
+      const { data: authSession } = await supabase.auth.getSession();
+      if (!authSession.session?.access_token) throw new Error('Your signed-in session has expired. Please sign in again before paying.');
       const response = await algoClient.fetchWithX402(getApiUrl('/api/ai/generate-test'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.session.access_token}` },
         body: JSON.stringify({
           topic,
           subject,

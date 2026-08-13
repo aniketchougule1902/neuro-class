@@ -12,17 +12,20 @@ export async function GET(request: Request): Promise<Response> {
 
   const url = new URL(request.url);
   const payer = url.searchParams.get('payer');
-  if (!payer || payer.length > 64) return NextResponse.json({ error: 'A valid payer address is required.' }, { status: 400 });
+  if (payer && payer.length > 64) return NextResponse.json({ error: 'The wallet address is invalid.' }, { status: 400 });
 
-  const { data, error } = await supabase.from('x402_payments')
-    .select('id,service_name,status,network,asset_id,amount_usdc_micro,payer_address,receiver_address,settlement_tx_id,request_path,payment_response,created_at,updated_at')
-    .eq('payer_address', payer)
+  let query = (supabase.from('x402_payments') as any)
+    .select('id,service_name,status,network,asset_id,amount_usdc_micro,payer_address,receiver_address,settlement_tx_id,request_path,verification_status,verified_at,confirmed_round,verification_error,created_at,updated_at')
+    .eq('owner_user_id', authData.user.id)
     .order('created_at', { ascending: false })
     .limit(50);
+  if (payer) query = query.eq('payer_address', payer);
+  const { data, error } = await query;
   if (error) return NextResponse.json({ error: 'Unable to read the payment ledger.' }, { status: 500 });
 
   return NextResponse.json({ payments: (data || []).map((payment: any) => ({
     ...payment,
     explorerUrl: payment.settlement_tx_id ? `https://testnet.explorer.perawallet.app/tx/${encodeURIComponent(payment.settlement_tx_id)}` : null,
+    receiptUrl: payment.id ? `/api/x402/verify?paymentId=${encodeURIComponent(payment.id)}` : null,
   })) });
 }

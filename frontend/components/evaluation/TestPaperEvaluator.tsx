@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { getEvaluations, saveEvaluation, EvaluationRecord, subscribeToStoreChanges } from '../../services/evaluationStore';
 import { getApiUrl } from '../../config/apiConfig';
+import { supabase } from '../../database/supabase';
 import { downloadAsExcel } from '../../services/excelGenerator';
 
 interface AnalyzedQuestion {
@@ -150,9 +151,11 @@ export const TestPaperEvaluator: React.FC = () => {
     }
 
     try {
+      const { data: authSession } = await supabase.auth.getSession();
+      if (!authSession.session?.access_token) throw new Error('Your signed-in session has expired. Please sign in again before analyzing a question paper.');
       const response = await fetch(getApiUrl('/api/analyze-question-paper'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.session.access_token}` },
         body: JSON.stringify({
           questionPaper: paperSource,
           subject: newPaperSubject
@@ -212,9 +215,11 @@ export const TestPaperEvaluator: React.FC = () => {
     }
 
     try {
+      const { data: authSession } = await supabase.auth.getSession();
+      if (!authSession.session?.access_token) throw new Error('Your signed-in session has expired. Please sign in again before grading.');
       const response = await fetch(getApiUrl('/api/evaluate/test-paper'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.session.access_token}` },
         body: JSON.stringify({
           studentAnswerSheet: sheetContent,
           subject: activePaper.subject,

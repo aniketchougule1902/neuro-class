@@ -46,14 +46,19 @@ const notifyStoreListeners = () => {
 };
 
 let isSynced = false;
+let evaluationCache: EvaluationRecord[] = [];
 export const initStoreSync = () => {
   if (isSynced) return;
   isSynced = true;
 
   const fetchEvaluations = async () => {
-    const { data, error } = await supabase.from('evaluations').select('*');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData.session?.user.id;
+    if (!userId) return;
+    const { data, error } = await supabase.from('evaluations').select('*').eq('owner_user_id', userId).order('date', { ascending: false }).limit(200);
     if (!error && data) {
-      localStorage.setItem('nc_evaluations', JSON.stringify(data));
+      evaluationCache = data as EvaluationRecord[];
+      localStorage.removeItem('nc_evaluations');
       notifyStoreListeners();
     }
   };
@@ -70,24 +75,21 @@ export const initStoreSync = () => {
 
 export const getEvaluations = (): EvaluationRecord[] => {
   initStoreSync();
-  const data = localStorage.getItem('nc_evaluations');
-  return data ? JSON.parse(data) : [];
+  return evaluationCache;
 };
 
 export const saveEvaluation = async (record: Omit<EvaluationRecord, 'id' | 'date'>): Promise<EvaluationRecord> => {
   initStoreSync();
-  const id = 'e-' + Math.random().toString(36).substr(2, 9);
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (!userId) throw new Error('Your signed-in session has expired. Please sign in again before saving an evaluation.');
+  const id = 'e-' + crypto.randomUUID();
   const date = new Date().toISOString();
   const newRecord: EvaluationRecord = { ...record, id, date };
 
-  const current = getEvaluations();
-  localStorage.setItem('nc_evaluations', JSON.stringify([newRecord, ...current]));
+  const { data: saved, error } = await supabase.from('evaluations').insert({ ...newRecord, owner_user_id: userId }).select('*').single();
+  if (error || !saved) throw new Error('Evaluation could not be saved securely. Please retry.');
+  evaluationCache = [saved as EvaluationRecord, ...evaluationCache];
   notifyStoreListeners();
-
-  const { error } = await supabase.from('evaluations').insert(newRecord);
-  if (error) {
-    console.error('Failed to save evaluation to Supabase:', error);
-  }
-
-  return newRecord;
+  return saved as EvaluationRecord;
 };

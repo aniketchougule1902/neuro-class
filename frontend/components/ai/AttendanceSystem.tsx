@@ -7,6 +7,7 @@ import { EmailService } from '../../services/ml/EmailService';
 import { supabase } from '../../database/supabase';
 import * as faceapi from '@vladmandic/face-api';
 import { logEvent } from '../../database/analytics';
+import { getApiUrl } from '../../config/apiConfig';
 
 interface AttendanceSystemProps {
   classId: string;
@@ -57,20 +58,16 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
     setSessionBusy(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const teacherId = session?.user?.id;
-      if (!teacherId) throw new Error('Please sign in again before opening attendance.');
-      const { data, error } = await (supabase.from('attendance_sessions') as any)
-        .insert({
-          classroom_id: classId,
-          teacher_id: teacherId,
-          title: `${className} attendance`,
-          nonce: crypto.randomUUID(),
-          ends_at: new Date(Date.now() + 90 * 60 * 1000).toISOString(),
-        })
-        .select('*')
-        .single();
-      if (error) throw error;
-      setActiveSession(data);
+      if (!session?.access_token) throw new Error('Please sign in again before opening attendance.');
+      const response = await fetch(getApiUrl('/api/attendance/session'), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ classroomId: classId, title: `${className} attendance`, durationMinutes: 90 }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not open an attendance session.');
+      setActiveSession({ ...payload.session, pin: payload.pin, challengeToken: payload.challengeToken });
+      setCameraError(`Session PIN: ${payload.pin}. ${payload.warning}`);
     } catch (error: any) {
       setCameraError(error.message || 'Could not open an attendance session.');
     } finally {
@@ -82,16 +79,41 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
     if (!activeSession) return;
     setSessionBusy(true);
     try {
-      const { error } = await (supabase.from('attendance_sessions') as any)
-        .update({ status: 'closed', closed_at: new Date().toISOString(), ends_at: new Date().toISOString() })
-        .eq('id', activeSession.id);
-      if (error) throw error;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Please sign in again before closing attendance.');
+      const response = await fetch(getApiUrl('/api/attendance/session'), {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: activeSession.id }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Could not close an attendance session.');
       setActiveSession(null);
     } catch (error: any) {
-      setCameraError(error.message || 'Could not close the attendance session.');
+      setCameraError(error.message || 'Could not close an attendance session.');
     } finally {
       setSessionBusy(false);
     }
+  };
+
+  const recordTeacherAttendance = async (student: any, confidence: number, modeName: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token || !activeSession) throw new Error('Your authenticated teacher session or attendance session is missing.');
+    const response = await fetch(getApiUrl('/api/attendance/teacher-mark'), {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        classroomId: classId,
+        sessionId: activeSession.id,
+        studentId: student.id,
+        studentName: student.name,
+        confidence,
+        mode: modeName,
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || 'Failed to record attendance.');
+    return payload.attendance;
   };
 
   const toggleCamera = async () => {
@@ -131,23 +153,10 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
     const match = await LocalMLService.matchFace(videoRef.current, enrolled);
     
     if (match) {
-      const { data: { session } } = await supabase.auth.getSession();
-      const currentUser = session?.user;
-      
-      const attendanceData: any = {
-        student_id: match.studentId,
-        student_name: match.name,
-        classroom_id: classId,
-        session_id: activeSession.id,
-        status: 'Present',
-        verified_method: 'Teacher Face-ID Biometric',
-        marked_by: currentUser?.id || null,
-        capture_metadata: { confidence: match.confidence, mode: 'single' },
-      };
-
-      const { error } = await (supabase.from('attendance') as any).insert(attendanceData);
-      if (error) {
-        setCameraError(error.code === '23505' ? 'This student is already marked for the active session.' : error.message);
+      try {
+        await recordTeacherAttendance({ id: match.studentId, name: match.name }, match.confidence, 'single');
+      } catch (error: any) {
+        setCameraError(error.message || 'Failed to record attendance.');
         setIsAnalyzing(false);
         return;
       }
@@ -217,24 +226,11 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
       if (match.label !== 'unknown' && match.distance < 0.6) {
         const student = students.find(s => s.id === match.label);
         if (student && !identified.find(i => i.studentId === student.id)) {
-          const { data: { session } } = await supabase.auth.getSession();
-          const currentUser = session?.user;
-          const attendanceData: any = {
-            student_id: student.id,
-            student_name: student.name,
-            classroom_id: classId,
-            session_id: activeSession.id,
-            status: 'Present',
-            verified_method: 'Teacher Face-ID Biometric',
-            marked_by: currentUser?.id || null,
-            capture_metadata: { confidence: (1 - match.distance) * 100, mode: 'group' },
-          };
-
-          const { error } = await (supabase.from('attendance') as any).insert(attendanceData);
-          
-          if (error) {
-             if (error.code !== '23505') setCameraError(error.message || 'Failed to record attendance.');
-             continue;
+          try {
+            await recordTeacherAttendance(student, (1 - match.distance) * 100, 'group');
+          } catch (error: any) {
+            if (!String(error.message || '').toLowerCase().includes('already marked')) setCameraError(error.message || 'Failed to record attendance.');
+            continue;
           }
           setIdentified(prev => [{ studentId: student.id, name: student.name, confidence: (1 - match.distance) * 100 }, ...prev]);
           await EmailService.sendAttendanceEmail(student.email, student.name, className);

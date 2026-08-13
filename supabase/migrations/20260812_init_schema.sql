@@ -96,8 +96,10 @@ CREATE TABLE IF NOT EXISTS public.evaluations (
   strengths JSONB,
   weaknesses JSONB,
   improvementSuggestions JSONB,
+  owner_user_id TEXT NOT NULL,
   date TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+CREATE INDEX IF NOT EXISTS evaluations_owner_date_idx ON public.evaluations (owner_user_id, date DESC);
 
 -- 8. x402 PROTOCOL ALGORAND SETTLEMENT AUDIT LOGS
 CREATE TABLE IF NOT EXISTS public.x402_payments (
@@ -137,8 +139,8 @@ CREATE POLICY "Allow anonymous insert classrooms" ON public.classrooms FOR INSER
 CREATE POLICY "Allow anonymous select tests" ON public.tests FOR SELECT USING (true);
 CREATE POLICY "Allow anonymous insert tests" ON public.tests FOR INSERT WITH CHECK (true);
 
-CREATE POLICY "Allow anonymous select evaluations" ON public.evaluations FOR SELECT USING (true);
-CREATE POLICY "Allow anonymous insert evaluations" ON public.evaluations FOR INSERT WITH CHECK (true);
+CREATE POLICY "Users read own evaluations" ON public.evaluations FOR SELECT TO authenticated USING (owner_user_id = auth.uid()::text);
+CREATE POLICY "Users insert own evaluations" ON public.evaluations FOR INSERT TO authenticated WITH CHECK (owner_user_id = auth.uid()::text);
 
 CREATE POLICY "Allow anonymous select x402" ON public.x402_payments FOR SELECT USING (true);
 CREATE POLICY "Allow anonymous insert x402" ON public.x402_payments FOR INSERT WITH CHECK (true);

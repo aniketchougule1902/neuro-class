@@ -5,6 +5,7 @@ import { supabase } from '../../database/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { CameraService } from '../../services/ml/CameraService';
 import { cn } from '../../lib/utils';
+import { getApiUrl } from '../../config/apiConfig';
 
 interface ExamTakerProps {
   testId: string;
@@ -17,6 +18,8 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({ testId, onExit }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [studentProfileId, setStudentProfileId] = useState<string | null>(null);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [serverScore, setServerScore] = useState<{ earned: number; total: number } | null>(null);
 
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -105,8 +108,18 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({ testId, onExit }) => {
       if (profErr || !profile) throw new Error('You are not enrolled in this class');
 
       setStudentProfileId(profile.id);
+      const { data: authSession } = await supabase.auth.getSession();
+      if (!authSession.session?.access_token) throw new Error('Your signed-in session has expired. Please sign in again.');
+      const startResponse = await fetch(getApiUrl('/api/exams/attempt/start'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.session.access_token}` },
+        body: JSON.stringify({ testId })
+      });
+      const startPayload = await startResponse.json().catch(() => ({}));
+      if (!startResponse.ok || !startPayload.attemptId) throw new Error(startPayload.error || 'Unable to start this exam.');
+      setAttemptId(startPayload.attemptId);
       setTest(testData);
-      setTimeLeft(testData.duration_minutes * 60);
+      setTimeLeft((testData.duration_minutes ?? testData.duration_mins ?? 45) * 60);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -125,25 +138,19 @@ export const ExamTaker: React.FC<ExamTakerProps> = ({ testId, onExit }) => {
   };
 
   const handleSubmit = async () => {
+    if (isSubmitting || isSubmitted || !attemptId) return;
     setIsSubmitting(true);
     try {
-      let score = 0;
-      test.questions.forEach((q: any) => {
-        if (q.type === 'mcq' && answers[q.id] === q.correctAnswer) {
-          score += q.points;
-        }
+      const { data: authSession } = await supabase.auth.getSession();
+      if (!authSession.session?.access_token) throw new Error('Your signed-in session has expired. Please sign in again.');
+      const response = await fetch(getApiUrl('/api/exams/attempt/submit'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.session.access_token}` },
+        body: JSON.stringify({ attemptId, answers, violations })
       });
-
-      const { error: insertErr } = await supabase.from('test_results').insert({
-        test_id: testId,
-        student_id: studentProfileId,
-        score,
-        answers,
-        violations: violations,
-      });
-
-      if (insertErr) throw insertErr;
-
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.submitted) throw new Error(payload.error || 'Failed to submit test.');
+      if (typeof payload.score === 'number' && typeof payload.total === 'number') setServerScore({ earned: payload.score, total: payload.total });
       stopProctorCamera();
       setIsSubmitted(true);
     } catch (e: any) {

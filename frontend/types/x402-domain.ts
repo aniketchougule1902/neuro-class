@@ -19,6 +19,9 @@ export type SettlementReceipt = {
   receiptHeader: string;
   explorerUrl?: string;
   serviceName?: string;
+  paymentId?: string;
+  verificationStatus?: 'facilitator_verified' | 'chain_verified' | 'pending' | 'not_found' | 'mismatch' | 'verification_unavailable';
+  confirmedRound?: number | null;
 };
 
 export type AccessResolution<T = unknown> =

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, X, BrainCircuit, Zap, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { algoClient } from '../../services/algoClient';
 import { getApiUrl } from '../../config/apiConfig';
+import { supabase } from '../../database/supabase';
 import { PaymentTimeline, type PaymentStage } from '../payments/PaymentTimeline';
 import type { SettlementReceipt } from '../../types/x402-domain';
 
@@ -66,9 +67,11 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
       // The first request receives HTTP 402; the x402 fetch wrapper asks Pera to sign
       // the USDC ASA transfer, retries with PAYMENT-SIGNATURE, and returns a settled receipt.
       setPaymentStage('signing');
+      const { data: authSession } = await supabase.auth.getSession();
+      if (!authSession.session?.access_token) throw new Error('Your signed-in session has expired. Please sign in again before paying.');
       const res = await algoClient.fetchWithX402(getApiUrl('/api/ai/generate-test'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.session.access_token}` },
         body: JSON.stringify({
           topic,
           subject,
