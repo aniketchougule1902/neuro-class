@@ -6,7 +6,7 @@ COPY backend/package.json backend/package-lock.json ./backend/
 WORKDIR /app/backend
 RUN npm ci
 COPY backend ./
-RUN npm run build
+RUN mkdir -p public && npm run build
 
 # Install frontend dependencies & build
 WORKDIR /app
