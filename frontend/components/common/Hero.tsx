@@ -69,46 +69,53 @@ const HeroVisual: React.FC = () => {
 
 const HeroVisualContent = () => {
   return (
-    <div className="relative w-full max-w-4xl aspect-video rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-100 dark:bg-slate-900 border border-black/10 dark:border-white/10 shadow-2xl flex items-center justify-center z-10">
+    <div className="relative w-full max-w-4xl aspect-video rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 border border-purple-500/30 shadow-2xl shadow-purple-500/20 flex items-center justify-center z-10 group">
       <img 
-        src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1200&auto=format&fit=crop" 
-        alt="Students in Classroom" 
+        src="https://images.unsplash.com/photo-1531482615713-2afd69097998?q=80&w=1600&auto=format&fit=crop" 
+        alt="AI Powered Classroom & Biometric Proctoring" 
         loading="lazy"
         decoding="async"
-        className="w-full h-full object-cover opacity-60 dark:opacity-40 grayscale group-hover:grayscale-0 transition-opacity duration-500"
+        className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-all duration-700 filter brightness-105 saturate-125"
         referrerPolicy="no-referrer"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-purple-950/20 to-transparent" />
       
-      {/* AI Detection Overlay Simulation */}
-      <div className="absolute top-1/4 left-1/4 w-28 h-28 sm:w-36 sm:h-36 border-2 border-blue-500/50 rounded-lg flex flex-col justify-between p-2">
-        <div className="absolute inset-0 bg-blue-500/10 animate-pulse rounded-lg" />
-        <span className="text-[10px] font-bold text-white self-start px-1 relative z-10">ID: 4829</span>
-        <span className="text-[10px] font-bold text-white self-end px-1 italic relative z-10">98.4% MATCH</span>
+      {/* Glowing Ambient Neons */}
+      <div className="absolute -top-12 -right-12 w-64 h-64 bg-purple-500/30 rounded-full blur-[80px] pointer-events-none" />
+      <div className="absolute -bottom-12 -left-12 w-64 h-64 bg-blue-500/30 rounded-full blur-[80px] pointer-events-none" />
+
+      {/* AI Detection Bounding Box Overlay */}
+      <div className="absolute top-1/4 left-1/4 w-28 h-28 sm:w-36 sm:h-36 border-2 border-purple-400 rounded-2xl flex flex-col justify-between p-2.5 shadow-[0_0_20px_rgba(168,85,247,0.4)] backdrop-blur-[2px]">
+        <div className="absolute inset-0 bg-purple-500/20 animate-pulse rounded-2xl" />
+        <div className="flex items-center justify-between relative z-10">
+          <span className="text-[10px] font-black text-white px-2 py-0.5 rounded-full bg-purple-600 shadow-md">ID: 4829</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+        </div>
+        <span className="text-[10px] font-bold text-emerald-300 self-end px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md relative z-10">99.4% MATCH</span>
       </div>
 
       {/* Floating Panels */}
       <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20 hidden xs:block">
         <FloatingPanel 
-          icon={<UserCheck className="text-blue-400" size={16} />}
+          icon={<UserCheck className="text-emerald-400" size={16} />}
           label="Live Attendance"
-          value="42 Students Present"
+          value="42 Students Verified"
         />
       </div>
       
       <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 z-20">
         <FloatingPanel 
           icon={<Shield className="text-purple-400" size={16} />}
-          label="Test Monitoring"
-          value="Room 102 Active"
+          label="AI Proctoring"
+          value="Biometric Security Active"
         />
       </div>
 
       <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20 hidden md:block">
         <FloatingPanel 
-          icon={<Zap className="text-pink-400" size={16} />}
+          icon={<Zap className="text-amber-400" size={16} />}
           label="Verified Results"
-          value="Syncing classroom records"
+          value="x402 Micropayments Live"
         />
       </div>
     </div>
