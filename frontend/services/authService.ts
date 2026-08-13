@@ -39,12 +39,15 @@ export const authService = {
       options: {
         data: {
           full_name: name.trim(),
+          role: role,
         },
       },
     });
 
     if (error) throw formatAuthError(error);
     if (!data.user) throw new Error('Sign-up did not return a user. Please try again.');
+
+    localStorage.setItem(`neuroclass_user_role_${data.user.id}`, role);
 
     const { error: profileError } = await supabase.from('users').upsert(
       {
@@ -53,7 +56,7 @@ export const authService = {
         displayName: name.trim(),
         photoURL: '',
         mobile_number: phone.trim(),
-        role,
+        role: role,
         createdAt: new Date().toISOString(),
       },
       { onConflict: 'uid' }
@@ -80,27 +83,77 @@ export const authService = {
     return data.user;
   },
 
+  async setUserRole(uid: string, role: AppRole): Promise<void> {
+    if (!uid) return;
+    localStorage.setItem(`neuroclass_user_role_${uid}`, role);
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.from('users').upsert(
+          {
+            uid,
+            role,
+          },
+          { onConflict: 'uid' }
+        );
+      } catch (err) {
+        console.warn('Unable to persist role update to Supabase:', err);
+      }
+    }
+  },
+
+  async getUserRole(uid: string): Promise<AppRole> {
+    if (!uid) return 'student';
+
+    const cached = localStorage.getItem(`neuroclass_user_role_${uid}`);
+    if (cached === 'student' || cached === 'teacher') {
+      return cached;
+    }
+
+    if (!isSupabaseConfigured()) {
+      return 'student';
+    }
+
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const metaRole = authData?.user?.user_metadata?.role;
+      if (metaRole === 'student' || metaRole === 'teacher') {
+        localStorage.setItem(`neuroclass_user_role_${uid}`, metaRole);
+        return metaRole;
+      }
+
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('role')
+        .eq('uid', uid)
+        .maybeSingle();
+
+      if (userRow?.role === 'student' || userRow?.role === 'teacher') {
+        localStorage.setItem(`neuroclass_user_role_${uid}`, userRow.role);
+        return userRow.role;
+      }
+
+      const { data: studentRow } = await supabase
+        .from('students')
+        .select('id')
+        .eq('user_id', uid)
+        .maybeSingle();
+
+      if (studentRow) {
+        localStorage.setItem(`neuroclass_user_role_${uid}`, 'student');
+        return 'student';
+      }
+    } catch (e) {
+      console.warn('Error determining user role:', e);
+    }
+
+    return 'student';
+  },
+
   async logout(): Promise<void> {
     requireSupabaseConfiguration();
     const { error } = await supabase.auth.signOut();
     if (error) throw formatAuthError(error);
-  },
-
-  async getUserRole(uid: string): Promise<AppRole> {
-    requireSupabaseConfiguration();
-
-    const { data, error } = await supabase
-      .from('users')
-      .select('role')
-      .eq('uid', uid)
-      .maybeSingle();
-
-    if (error) {
-      console.warn('Failed to fetch the application role from Supabase:', error.message);
-      return 'teacher';
-    }
-
-    return data?.role === 'student' ? 'student' : 'teacher';
   },
 
   subscribeToAuthState(onUserChanged: (user: AppUser | null) => void): () => void {

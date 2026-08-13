@@ -5,6 +5,7 @@ interface AuthContextType {
   user: AppUser | null;
   userRole: 'teacher' | 'student' | null;
   loading: boolean;
+  setUserRole: (role: 'teacher' | 'student') => void;
   refreshAuth: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -13,12 +14,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AppUser | null>(null);
-  const [userRole, setUserRole] = useState<'teacher' | 'student' | null>(null);
+  const [userRole, setUserRoleState] = useState<'teacher' | 'student' | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchRole = async (uid: string) => {
     const role = await authService.getUserRole(uid);
-    setUserRole(role);
+    setUserRoleState(role);
   };
 
   useEffect(() => {
@@ -27,13 +28,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (currentUser && 'id' in currentUser) {
         await fetchRole(currentUser.id);
       } else {
-        setUserRole(null);
+        setUserRoleState(null);
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
+
+  const setUserRole = (role: 'teacher' | 'student') => {
+    setUserRoleState(role);
+    if (user?.id) {
+      authService.setUserRole(user.id, role);
+    }
+  };
 
   const refreshAuth = async () => {
     if (user && 'id' in user) {
@@ -44,11 +52,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     await authService.logout();
     setUser(null);
-    setUserRole(null);
+    setUserRoleState(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, userRole, loading, refreshAuth, logout }}>
+    <AuthContext.Provider value={{ user, userRole, loading, setUserRole, refreshAuth, logout }}>
       {children}
     </AuthContext.Provider>
   );

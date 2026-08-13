@@ -8,7 +8,7 @@ let modelLoadPromise: Promise<void> | null = null;
 
 // Pin the model assets to the same face-api version used by the application.
 // This avoids production builds silently pulling a moving `master` revision.
-const MODEL_URL = 'https://cdn.jsdelivr.net/gh/vladmandic/face-api@1.7.15/model';
+const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model';
 
 export interface FaceMatchResult {
   studentId?: string;

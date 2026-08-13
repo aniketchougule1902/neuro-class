@@ -18,6 +18,30 @@ export const X402_TREASURY_ADDRESS = (
   'HYNRAYO4IGZRBJ6MWZTBIRAOVWQFZODFDQBSJNQNFSP3TRGV5IYOOAZN5A'
 ).trim();
 
+const ALLOWED_ORIGINS = (
+  process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173'
+).split(',').map(s => s.trim());
+
+export function getCorsHeaders(requestOrigin?: string | null): Record<string, string> {
+  const origin = requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)
+    ? requestOrigin
+    : (ALLOWED_ORIGINS[0] || '*');
+
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, PAYMENT-SIGNATURE, X-PAYMENT',
+    'Access-Control-Expose-Headers': 'PAYMENT-REQUIRED, PAYMENT-RESPONSE, X-402-Transaction-Id',
+  };
+}
+
+export const X402_CORS_HEADERS = getCorsHeaders();
+
+export function x402OptionsResponse(request?: Request): Response {
+  const origin = request?.headers.get('origin');
+  return new Response(null, { status: 204, headers: getCorsHeaders(origin) });
+}
+
 const amountFromEnvironment = (name: string, fallback: string): string => {
   const value = process.env[name] || fallback;
   if (!/^\d+$/.test(value) || BigInt(value) <= 0n) {
@@ -31,17 +55,6 @@ const usdcPrice = (amount: string) => ({
   amount,
   extra: { name: 'USDC', decimals: 6 },
 });
-
-export const X402_CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, PAYMENT-SIGNATURE, X-PAYMENT',
-  'Access-Control-Expose-Headers': 'PAYMENT-REQUIRED, PAYMENT-RESPONSE, X-402-Transaction-Id',
-};
-
-export function x402OptionsResponse(): Response {
-  return new Response(null, { status: 204, headers: X402_CORS_HEADERS });
-}
 
 export const X402_ROUTES: RoutesConfig = {
   'POST /api/ai/generate-test': {
@@ -95,13 +108,16 @@ async function persistSettlementReceipt(
 ): Promise<void> {
   if (!isSupabaseServiceRoleConfigured() || !settlement.transaction) return;
 
+  const requestPath = new URL(request.url).pathname;
+  const serviceName = requestPath.includes('generate-assignment')
+    ? 'NeuroClass AI Assignment Designer'
+    : 'NeuroClass AI Test Designer';
+
   try {
-    const { error } = await supabase.from('x402_payments').insert({
+    const { error: paymentErr } = await supabase.from('x402_payments').insert({
       tx_hash: settlement.transaction,
       amount_algo: null,
-      service_name: request.url.includes('generate-assignment')
-        ? 'NeuroClass AI Assignment Designer'
-        : 'NeuroClass AI Test Designer',
+      service_name: serviceName,
       payer_address: settlement.payer || null,
       receiver_address: X402_TREASURY_ADDRESS,
       status: 'settled',
@@ -109,23 +125,36 @@ async function persistSettlementReceipt(
       asset_id: X402_USDC_ASSET,
       amount_usdc_micro: parseMicroAmount(settlement.amount),
       settlement_tx_id: settlement.transaction,
-      request_path: new URL(request.url).pathname,
+      request_path: requestPath,
       payment_response: settlement,
       updated_at: new Date().toISOString(),
     });
 
-    if (error && error.code !== '23505') {
-      console.error('Unable to persist x402 settlement receipt:', error.message);
+    if (paymentErr && paymentErr.code !== '23505') {
+      console.error('Unable to persist x402 settlement receipt:', paymentErr.message);
+    }
+
+    const { error: entitlementErr } = await supabase.from('x402_entitlements').insert({
+      resource_id: requestPath,
+      subject_id: settlement.payer || 'anonymous_payer',
+      settlement_tx_id: settlement.transaction,
+      status: 'active',
+      granted_at: new Date().toISOString(),
+    });
+
+    if (entitlementErr && entitlementErr.code !== '23505') {
+      console.error('Unable to grant x402 entitlement record:', entitlementErr.message);
     }
   } catch (error) {
-    console.error('Unable to persist x402 settlement receipt:', error);
+    console.error('Unable to persist x402 settlement receipt or entitlement:', error);
   }
-
 }
 
 export async function addSettlementReceipt(request: Request, response: Response): Promise<Response> {
+  const origin = request.headers.get('origin');
   const corsHeaders = new Headers(response.headers);
-  Object.entries(X402_CORS_HEADERS).forEach(([key, value]) => corsHeaders.set(key, value));
+  Object.entries(getCorsHeaders(origin)).forEach(([key, value]) => corsHeaders.set(key, value));
+  
   const corsResponse = new Response(response.body, {
     status: response.status,
     statusText: response.statusText,

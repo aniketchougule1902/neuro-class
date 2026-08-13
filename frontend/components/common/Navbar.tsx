@@ -15,6 +15,11 @@ const Navbar: React.FC<NavbarProps> = ({ onLogin }) => {
   const { user, userRole, logout } = useAuth();
   const location = useLocation();
 
+  // Do not render top navbar on dashboard portals
+  if (location.pathname.startsWith('/student') || location.pathname.startsWith('/teacher')) {
+    return null;
+  }
+
   // Only show nav links on the homepage
   const isHome = location.pathname === '/';
 

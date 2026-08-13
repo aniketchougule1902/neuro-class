@@ -2,8 +2,10 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { 
   LayoutDashboard, BookOpen, Clock, 
-  FileText, BarChart3, Settings, ArrowRight
+  FileText, BarChart3, Settings, LogOut, Home
 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { cn } from '../../lib/utils';
 
 interface SidebarProps {
@@ -14,6 +16,9 @@ interface SidebarProps {
 }
 
 export const StudentSidebar: React.FC<SidebarProps> = ({ activeSection, setActiveSection, isHovered, setHovered }) => {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
     { id: 'classes', label: 'My Classes', icon: <BookOpen size={20} /> },
@@ -23,6 +28,11 @@ export const StudentSidebar: React.FC<SidebarProps> = ({ activeSection, setActiv
     { id: 'settings', label: 'Settings', icon: <Settings size={20} /> },
   ];
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
+
   return (
     <motion.aside 
       initial={{ x: -100, opacity: 0 }}
@@ -30,10 +40,25 @@ export const StudentSidebar: React.FC<SidebarProps> = ({ activeSection, setActiv
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        "fixed left-0 top-20 bottom-0 z-40 bg-white/50 dark:bg-black/50 backdrop-blur-2xl border-r border-black/5 dark:border-white/10 transition-all duration-500 flex flex-col py-6",
+        "fixed left-0 top-0 bottom-0 z-40 bg-white/60 dark:bg-black/60 backdrop-blur-2xl border-r border-black/5 dark:border-white/10 transition-all duration-500 flex flex-col py-6",
         isHovered ? "w-64" : "w-20"
       )}
     >
+      {/* Brand Header */}
+      <div className="px-4 mb-8 flex items-center gap-3 overflow-hidden">
+        <Link to="/" className="flex items-center gap-3 shrink-0">
+          <img src="/logo-dark.png" className="w-8 h-8 hidden dark:block" alt="Logo" />
+          <img src="/logo-light.png" className="w-8 h-8 block dark:hidden" alt="Logo" />
+        </Link>
+
+        {isHovered && (
+          <span className="text-sm font-black tracking-tight text-slate-900 dark:text-white whitespace-nowrap animate-in fade-in">
+            NEURO<span className="text-purple-600 dark:text-purple-400 font-light">STUDENT</span>
+          </span>
+        )}
+      </div>
+
+      {/* Nav Items */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 space-y-2 scrollbar-hide">
         {navItems.map((item) => (
           <button
@@ -66,9 +91,21 @@ export const StudentSidebar: React.FC<SidebarProps> = ({ activeSection, setActiv
         ))}
       </div>
 
-      <div className="px-4 mt-auto pt-6 border-t border-black/5 dark:border-white/10">
-        <button className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-black hover:opacity-90 transition-opacity">
-          <ArrowRight size={18} className={cn("transition-transform", isHovered ? "" : "rotate-180")} />
+      {/* Footer Actions */}
+      <div className="px-3 mt-auto pt-6 border-t border-black/5 dark:border-white/10 space-y-2">
+        <Link to="/">
+          <button className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white transition-all">
+            <Home size={18} />
+            {isHovered && <span className="text-[11px] font-bold uppercase tracking-widest">Homepage</span>}
+          </button>
+        </Link>
+
+        <button 
+          onClick={handleLogout}
+          className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-rose-500 hover:bg-rose-500/10 transition-all"
+        >
+          <LogOut size={18} />
+          {isHovered && <span className="text-[11px] font-bold uppercase tracking-widest">Logout</span>}
         </button>
       </div>
     </motion.aside>

@@ -4,6 +4,7 @@
     "frontend/**/*.ts",
     "frontend/**/*.tsx",
     "frontend/**/*.d.ts",
+    "shared/**/*.ts",
     "vite.config.ts"
   ],
   "exclude": [

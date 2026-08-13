@@ -3,6 +3,11 @@ import algosdk from 'algosdk';
 import { x402Client, wrapFetchWithPayment } from '@x402/fetch';
 import type { ClientAvmSigner } from '@x402/avm';
 import { ExactAvmScheme } from '@x402/avm/exact/client';
+import {
+  AccessResolution,
+  parsePaymentRequirementHeader,
+  parseSettlementReceiptHeader,
+} from '../types/x402-domain';
 
 const ALGORAND_TESTNET_CAIP2 = import.meta.env.VITE_X402_NETWORK || 'algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=';
 const ALGOD_SERVER = import.meta.env.VITE_ALGOD_SERVER_URL || 'https://testnet-api.algonode.cloud';
@@ -90,6 +95,71 @@ export const algoClient = {
   async fetchWithX402(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     const address = connectedAddress || await this.connectWallet();
     return createX402Fetch(address)(input, init);
+  },
+
+  async resolveAccess<T = unknown>(response: Response): Promise<AccessResolution<T>> {
+    if (response.status === 402) {
+      const challengeHeader = response.headers.get('PAYMENT-REQUIRED') || response.headers.get('payment-required');
+      const requirement = parsePaymentRequirementHeader(challengeHeader);
+      if (requirement && challengeHeader) {
+        return {
+          status: 'payment_required',
+          requirement,
+          challengeHeader,
+        };
+      }
+      return {
+        status: 'failed',
+        error: 'Payment requirement challenge missing or malformed',
+        failureCode: 'MALFORMED_CHALLENGE',
+        retryable: true,
+      };
+    }
+
+    if (response.ok) {
+      const receiptHeader = response.headers.get('PAYMENT-RESPONSE') || response.headers.get('payment-response');
+      const receipt = parseSettlementReceiptHeader(receiptHeader);
+      const data = await response.json().catch(() => null);
+
+      if (receipt) {
+        return {
+          status: 'authorised',
+          receipt,
+          data: data as T,
+        };
+      }
+      if (data && typeof data === 'object' && 'x402' in data) {
+        const x402Obj = (data as { x402: Record<string, unknown> }).x402;
+        return {
+          status: 'authorised',
+          receipt: {
+            protocolVersion: Number(x402Obj.protocolVersion || 2),
+            network: String(x402Obj.network || ''),
+            asset: String(x402Obj.asset || ''),
+            transactionId: String(x402Obj.transactionId || ''),
+            payer: String(x402Obj.payer || ''),
+            amount: String(x402Obj.amount || ''),
+            receiptHeader: String(x402Obj.receiptHeader || ''),
+          },
+          data: data as T,
+        };
+      }
+
+      return {
+        status: 'failed',
+        error: 'Authorised response was missing a valid settlement receipt',
+        failureCode: 'RECEIPT_MISSING',
+        retryable: false,
+      };
+    }
+
+    const errBody = await response.json().catch(() => ({}));
+    return {
+      status: 'failed',
+      error: errBody.error || `HTTP ${response.status} error`,
+      failureCode: `HTTP_${response.status}`,
+      retryable: response.status >= 500,
+    };
   },
 
   async getBalance(address: string): Promise<number> {
