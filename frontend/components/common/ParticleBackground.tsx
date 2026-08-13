@@ -4,23 +4,32 @@ import { useTheme } from '../../context/ThemeContext';
 const ParticleBackground: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { theme } = useTheme();
-  const mouseRef = useRef({ x: -1000, y: -1000, radius: 300 });
+  const mouseRef = useRef({ x: -1000, y: -1000, radius: 200 });
 
   useEffect(() => {
+    // Disable on mobile or reduced motion for max performance & battery life
+    const isMobile = window.innerWidth < 768;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (isMobile || prefersReducedMotion) {
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
     let animationFrameId: number;
     let particles: Particle[] = [];
-    
-    // Density settings
-    const gap = theme === 'dark' ? 68 : 84; 
-    const mouseStrength = 0.4;
-    const friction = 0.96;
-    const ease = 0.03;
+    let isVisible = true;
+
+    // Optimized density settings (fewer particles = higher frame rates)
+    const gap = theme === 'dark' ? 120 : 140; 
+    const mouseStrength = 0.3;
+    const friction = 0.95;
+    const ease = 0.04;
 
     class Particle {
       x: number;
@@ -31,49 +40,36 @@ const ParticleBackground: React.FC = () => {
       vx: number;
       vy: number;
       color: string;
-      density: number;
-      z: number; // For parallax
 
       constructor(x: number, y: number) {
-        this.x = Math.random() * canvas!.width;
-        this.y = Math.random() * canvas!.height;
+        this.x = x;
+        this.y = y;
         this.originX = x;
         this.originY = y;
         this.size = Math.random() * 1.5 + 0.5;
         this.vx = 0;
         this.vy = 0;
-        this.z = Math.random() * 2 + 1;
-        
+
         const colors = theme === 'dark' 
-          ? ['#6366f1', '#3b82f6', '#8b5cf6', '#4f46e5'] 
-          : ['#3b82f6', '#4f46e5', '#8b5cf6', '#e2e8f0'];
+          ? ['#6366f1', '#3b82f6', '#8b5cf6'] 
+          : ['#3b82f6', '#4f46e5', '#8b5cf6'];
         
         this.color = colors[Math.floor(Math.random() * colors.length)];
-        this.density = (Math.random() * 20) + 1;
       }
 
       update() {
-        // Parallax effect based on mouseRef
-        const parallaxX = (mouseRef.current.x - canvas!.width / 2) * 0.01 * this.z;
-        const parallaxY = (mouseRef.current.y - canvas!.height / 2) * 0.01 * this.z;
-
-        const time = Date.now() * 0.0008;
-        const driftX = Math.sin(time + this.originY * 0.01) * 2;
-        const driftY = Math.cos(time + this.originX * 0.01) * 2;
-
         const dx = mouseRef.current.x - this.x;
         const dy = mouseRef.current.y - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        
+
         if (distance < mouseRef.current.radius) {
           const force = (mouseRef.current.radius - distance) / mouseRef.current.radius;
-          this.vx += (dx / distance) * force * this.density * mouseStrength;
-          this.vy += (dy / distance) * force * this.density * mouseStrength;
+          this.vx += (dx / (distance || 1)) * force * mouseStrength * 5;
+          this.vy += (dy / (distance || 1)) * force * mouseStrength * 5;
         }
 
-        this.vx += (this.originX + driftX + parallaxX - this.x) * ease;
-        this.vy += (this.originY + driftY + parallaxY - this.y) * ease;
-
+        this.vx += (this.originX - this.x) * ease;
+        this.vy += (this.originY - this.y) * ease;
         this.vx *= friction;
         this.vy *= friction;
 
@@ -83,19 +79,10 @@ const ParticleBackground: React.FC = () => {
 
       draw() {
         if (!ctx) return;
-        
-        const dx = mouseRef.current.x - this.x;
-        const dy = mouseRef.current.y - this.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        const opacity = Math.max(0.1, 1 - (distance / (mouseRef.current.radius * 3)));
-        const sizeBonus = distance < mouseRef.current.radius ? (1 - distance / mouseRef.current.radius) * 1 : 0;
-        
         ctx.fillStyle = this.color;
-        ctx.globalAlpha = theme === 'dark' ? opacity * 0.4 : opacity * 0.2;
-        
+        ctx.globalAlpha = theme === 'dark' ? 0.3 : 0.25;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, (this.size + sizeBonus), 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -111,36 +98,22 @@ const ParticleBackground: React.FC = () => {
       }
     };
 
-    const animate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Draw subtle background waves
-      const time = Date.now() * 0.0005;
-      const gradient = ctx.createRadialGradient(
-        canvas.width / 2 + Math.sin(time) * 100, 
-        canvas.height / 2 + Math.cos(time) * 100, 
-        0,
-        canvas.width / 2, 
-        canvas.height / 2, 
-        canvas.width 
-      );
-      
-      if (theme === 'dark') {
-        gradient.addColorStop(0, 'rgba(30, 41, 59, 0.05)');
-        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      } else {
-        gradient.addColorStop(0, 'rgba(59, 130, 246, 0.02)');
-        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-      }
-      
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    let lastTime = 0;
+    const fpsInterval = 1000 / 30; // Cap at 30fps for smooth performance & lower power usage
 
-      particles.forEach((p) => {
-        p.update();
-        p.draw();
-      });
+    const animate = (currentTime: number) => {
+      if (!isVisible) return;
       animationFrameId = requestAnimationFrame(animate);
+
+      const elapsed = currentTime - lastTime;
+      if (elapsed < fpsInterval) return;
+      lastTime = currentTime - (elapsed % fpsInterval);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < particles.length; i++) {
+        particles[i].update();
+        particles[i].draw();
+      }
     };
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -148,34 +121,38 @@ const ParticleBackground: React.FC = () => {
       mouseRef.current.y = e.clientY;
     };
 
-    const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length > 0) {
-        mouseRef.current.x = e.touches[0].clientX;
-        mouseRef.current.y = e.touches[0].clientY;
+    const handleVisibilityChange = () => {
+      isVisible = !document.hidden;
+      if (isVisible) {
+        lastTime = performance.now();
+        animationFrameId = requestAnimationFrame(animate);
+      } else {
+        cancelAnimationFrame(animationFrameId);
       }
     };
 
     init();
-    animate();
+    animationFrameId = requestAnimationFrame(animate);
 
-    window.addEventListener('resize', init);
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('touchmove', handleTouchMove);
+    window.addEventListener('resize', init, { passive: true });
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', init);
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [theme]);
 
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 -z-10 pointer-events-none transition-opacity duration-1000"
+      className="fixed inset-0 -z-10 pointer-events-none hidden md:block transition-opacity duration-500"
     />
   );
 };
 
 export default ParticleBackground;
+
