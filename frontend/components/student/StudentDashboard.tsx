@@ -8,6 +8,8 @@ import { StudentOverview } from './StudentOverview';
 import { StudentPerformance } from './StudentPerformance';
 import { StudentHistory } from './StudentHistory';
 import { StudentSettings } from './StudentSettings';
+import { ProjectAdvisor } from './ProjectAdvisor';
+import { ClassroomLearningBot } from './ClassroomLearningBot';
 
 export const StudentDashboard: React.FC = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -33,6 +35,10 @@ export const StudentDashboard: React.FC = () => {
         return <StudentPerformance />;
       case 'history':
         return <StudentHistory />;
+      case 'project-advisor':
+        return <ProjectAdvisor />;
+      case 'learning-bot':
+        return <ClassroomLearningBot />;
       case 'settings':
         return <StudentSettings onRegisterFaceClick={() => setJoinWizardOpen(true)} />;
       default:

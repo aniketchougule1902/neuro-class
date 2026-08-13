@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, X, BrainCircuit, Zap, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { algoClient } from '../../services/algoClient';
 import { getApiUrl } from '../../config/apiConfig';
+import { PaymentTimeline, type PaymentStage } from '../payments/PaymentTimeline';
+import type { SettlementReceipt } from '../../types/x402-domain';
 
 interface AIGenerationModalProps {
   isOpen: boolean;
@@ -18,6 +20,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
   
   const [wallet, setWallet] = useState<{ address: string; balanceAlgo: number } | null>(null);
   const [status, setStatus] = useState<'idle' | 'paying' | 'generating' | 'success' | 'error'>('idle');
+  const [paymentStage, setPaymentStage] = useState<PaymentStage>('idle');
+  const [receipt, setReceipt] = useState<SettlementReceipt | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   
   const PRICE_USDC = 0.10;
@@ -26,6 +30,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
     const initModal = async () => {
       if (isOpen) {
         setStatus('idle');
+        setPaymentStage('idle');
+        setReceipt(null);
         setErrorMsg('');
         
         const address = await algoClient.reconnectWallet();
@@ -49,14 +55,17 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
     try {
       setErrorMsg('');
       setStatus('paying');
+      setPaymentStage('wallet');
 
       // Pera signs only the x402 payment transaction. NeuroClass never receives a private key.
       const address = wallet?.address || await algoClient.connectWallet();
       const balanceAlgo = await algoClient.getBalance(address).catch(() => 0);
       setWallet({ address, balanceAlgo });
 
+      setPaymentStage('challenge');
       // The first request receives HTTP 402; the x402 fetch wrapper asks Pera to sign
       // the USDC ASA transfer, retries with PAYMENT-SIGNATURE, and returns a settled receipt.
+      setPaymentStage('signing');
       const res = await algoClient.fetchWithX402(getApiUrl('/api/ai/generate-test'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -70,23 +79,21 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
         }),
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.message || data.error || 'AI Generation Failed');
-      }
-      if (!data.x402?.transactionId) {
-        throw new Error('The API response did not include a settled Algorand transaction receipt.');
-      }
-
+      setPaymentStage('settling');
+      const resolution = await algoClient.resolveAccess<any>(res);
+      if (resolution.status !== 'authorised') throw new Error(resolution.status === 'failed' ? resolution.error : 'Payment is required before this request can continue.');
+      setReceipt(resolution.receipt);
+      setPaymentStage('verified');
       setStatus('success');
       setTimeout(() => {
-        onGenerate(data.test);
+        onGenerate(resolution.data.test);
         onClose();
-      }, 1500);
+      }, 1800);
 
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || 'An unexpected error occurred');
+      setPaymentStage('error');
       setStatus('error');
     }
   };
@@ -138,22 +145,18 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
             )}
 
             {status === 'success' ? (
-              <div className="py-12 text-center space-y-4">
-                <CheckCircle2 size={64} className="mx-auto text-emerald-500" />
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Generation Complete!</h3>
-                <p className="text-slate-500">Importing questions into designer...</p>
+              <div className="space-y-5">
+                <div className="text-center space-y-2">
+                  <CheckCircle2 size={52} className="mx-auto text-emerald-500" />
+                  <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Generation Complete</h3>
+                  <p className="text-slate-500">Your paid result is ready. The receipt below is independently verifiable.</p>
+                </div>
+                <PaymentTimeline stage={paymentStage} receipt={receipt} priceLabel={`${PRICE_USDC.toFixed(2)} USDC · Algorand Testnet`} />
               </div>
             ) : status === 'paying' || status === 'generating' ? (
-              <div className="py-12 text-center space-y-6">
-                <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-                    {status === 'paying' ? 'Executing x402 Protocol...' : 'Synthesizing Test Paper...'}
-                  </h3>
-                  <p className="text-slate-500 text-sm">
-                    {status === 'paying' ? `Sign ${PRICE_USDC.toFixed(2)} USDC in Pera Wallet on Algorand Testnet` : 'NeuroClass AI is generating your requested assessment'}
-                  </p>
-                </div>
+              <div className="space-y-5">
+                <PaymentTimeline stage={paymentStage} receipt={receipt} error={errorMsg} priceLabel={`${PRICE_USDC.toFixed(2)} USDC · Algorand Testnet`} />
+                <p className="text-center text-slate-500 text-sm">Keep Pera Wallet open while the x402 payment is signed and settled.</p>
               </div>
             ) : (
               <div className="space-y-4">

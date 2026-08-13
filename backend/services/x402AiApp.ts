@@ -2,6 +2,7 @@ import { cors } from 'hono/cors';
 import type { Context } from 'hono';
 import { aiGenerationService } from './aiGenerationService';
 import { addSettlementReceipt, x402App } from './x402Routes';
+import { supabase } from '../database/supabase';
 
 const boundedText = (value: unknown, field: string, maxLength: number): string => {
   if (typeof value !== 'string' || value.trim().length === 0) {
@@ -57,6 +58,23 @@ const validateTestBody = (body: Record<string, unknown>) => {
   } as const;
 };
 
+const validateClassroomAnswerBody = (body: Record<string, unknown>) => {
+  const classroomId = boundedText(body.classroomId, 'classroomId', 100);
+  const question = boundedText(body.question, 'question', 2000);
+  const threadId = body.threadId == null ? '' : boundedText(body.threadId, 'threadId', 100);
+  return { classroomId, question, threadId } as const;
+};
+
+const validateProjectIdeaBody = (body: Record<string, unknown>) => {
+  const category = boundedText(body.category, 'category', 100);
+  const target = boundedText(body.target, 'target', 200);
+  const skills = boundedText(body.skills, 'skills', 500);
+  const constraints = boundedText(body.constraints, 'constraints', 500);
+  const impact = boundedText(body.impact, 'impact', 500);
+  const preferredStack = body.preferredStack == null ? '' : boundedText(body.preferredStack, 'preferredStack', 200);
+  return { category, target, skills, constraints, impact, preferredStack } as const;
+};
+
 const validateAssignmentBody = (body: Record<string, unknown>) => {
   const topic = boundedText(body.topic, 'topic', 160);
   const subject = boundedText(body.subject, 'subject', 120);
@@ -102,6 +120,73 @@ x402App.post('/api/ai/generate-assignment', async (c) => withHandlerErrors(c, as
     validateAssignmentBody(await getObjectBody(c)),
   );
   return c.json({ success: true, assignment });
+}));
+
+x402App.post('/api/ai/project-idea', async (c) => withHandlerErrors(c, async () => {
+  const token = c.req.header('authorization')?.replace(/^Bearer\s+/i, '');
+  if (!token) return c.json({ error: 'Authentication is required.' }, 401);
+  const { data: authData, error: authError } = await supabase.auth.getUser(token);
+  if (authError || !authData.user) return c.json({ error: 'Authentication is invalid or expired.' }, 401);
+  const project = await aiGenerationService.generateProjectIdea(
+    validateProjectIdeaBody(await getObjectBody(c)),
+  );
+  return c.json({ success: true, project });
+}));
+
+x402App.post('/api/ai/classroom-answer', async (c) => withHandlerErrors(c, async () => {
+  const { classroomId, question, threadId } = validateClassroomAnswerBody(await getObjectBody(c));
+  const token = c.req.header('authorization')?.replace(/^Bearer\s+/i, '');
+  if (!token) return c.json({ error: 'Authentication is required.' }, 401);
+  const { data: authData, error: authError } = await supabase.auth.getUser(token);
+  if (authError || !authData.user) return c.json({ error: 'Authentication is invalid or expired.' }, 401);
+
+  const { data: membership, error: membershipError } = await (supabase.from('students') as any)
+    .select('id')
+    .eq('user_id', authData.user.id)
+    .eq('classroom_id', classroomId)
+    .limit(1)
+    .maybeSingle();
+  if (membershipError || !membership) return c.json({ error: 'You are not enrolled in this classroom.' }, 403);
+
+  const { data: materials } = await (supabase.from('classroom_materials') as any)
+    .select('name, mime_type, extracted_text, extraction_status')
+    .eq('classroom_id', classroomId)
+    .eq('extraction_status', 'ready')
+    .order('created_at', { ascending: false })
+    .limit(40);
+  const context = (materials || []).map((material: any) => `SOURCE: ${material.name} (${material.mime_type})\\n${String(material.extracted_text || '').slice(0, 12000)}`).join('\\n\\n');
+
+  let thread: any = null;
+  if (threadId) {
+    const { data } = await (supabase.from('learning_threads') as any)
+      .select('id, classroom_id, student_user_id')
+      .eq('id', threadId)
+      .eq('classroom_id', classroomId)
+      .eq('student_user_id', authData.user.id)
+      .maybeSingle();
+    thread = data;
+  }
+  if (!thread) {
+    const { data, error } = await (supabase.from('learning_threads') as any).insert({
+      classroom_id: classroomId,
+      student_user_id: authData.user.id,
+      title: question.slice(0, 80),
+    }).select('id, classroom_id, student_user_id').single();
+    if (error) throw error;
+    thread = data;
+  }
+
+  const { data: history } = await (supabase.from('learning_messages') as any)
+    .select('role, content')
+    .eq('thread_id', thread.id)
+    .order('created_at', { ascending: true })
+    .limit(20);
+  const answer = await aiGenerationService.answerClassroomQuestion({ question, context, history: history || [] });
+  await (supabase.from('learning_messages') as any).insert([
+    { thread_id: thread.id, role: 'user', content: question },
+    { thread_id: thread.id, role: 'assistant', content: String(answer.answer || ''), citations: answer.citations || [] },
+  ]);
+  return c.json({ success: true, threadId: thread.id, answer, sources: (materials || []).map((item: any) => item.name) });
 }));
 
 export async function handleX402AiRequest(request: Request): Promise<Response> {

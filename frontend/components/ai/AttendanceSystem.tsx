@@ -32,6 +32,8 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
   const [identified, setIdentified] = useState<any[]>([]);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [selectedStudentForReg, setSelectedStudentForReg] = useState<string>('');
+  const [activeSession, setActiveSession] = useState<any>(null);
+  const [sessionBusy, setSessionBusy] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -48,6 +50,47 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
       setStudents(data || []);
     } catch (e) {
       console.error('Failed to fetch students in attendance:', e);
+    }
+  };
+
+  const openAttendanceSession = async () => {
+    setSessionBusy(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const teacherId = session?.user?.id;
+      if (!teacherId) throw new Error('Please sign in again before opening attendance.');
+      const { data, error } = await (supabase.from('attendance_sessions') as any)
+        .insert({
+          classroom_id: classId,
+          teacher_id: teacherId,
+          title: `${className} attendance`,
+          nonce: crypto.randomUUID(),
+          ends_at: new Date(Date.now() + 90 * 60 * 1000).toISOString(),
+        })
+        .select('*')
+        .single();
+      if (error) throw error;
+      setActiveSession(data);
+    } catch (error: any) {
+      setCameraError(error.message || 'Could not open an attendance session.');
+    } finally {
+      setSessionBusy(false);
+    }
+  };
+
+  const closeAttendanceSession = async () => {
+    if (!activeSession) return;
+    setSessionBusy(true);
+    try {
+      const { error } = await (supabase.from('attendance_sessions') as any)
+        .update({ status: 'closed', closed_at: new Date().toISOString(), ends_at: new Date().toISOString() })
+        .eq('id', activeSession.id);
+      if (error) throw error;
+      setActiveSession(null);
+    } catch (error: any) {
+      setCameraError(error.message || 'Could not close the attendance session.');
+    } finally {
+      setSessionBusy(false);
     }
   };
 
@@ -70,7 +113,10 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
   };
 
   const processSingle = async () => {
-    if (!videoRef.current || !isCameraActive) return;
+    if (!videoRef.current || !isCameraActive || !activeSession) {
+      setCameraError('Open an attendance session before scanning students.');
+      return;
+    }
     setIsAnalyzing(true);
     
     // Convert descriptors from strings back to Float32Array
@@ -85,20 +131,27 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
     const match = await LocalMLService.matchFace(videoRef.current, enrolled);
     
     if (match) {
-      setIdentified(prev => [match, ...prev]);
       const { data: { session } } = await supabase.auth.getSession();
       const currentUser = session?.user;
       
       const attendanceData: any = {
         student_id: match.studentId,
+        student_name: match.name,
         classroom_id: classId,
+        session_id: activeSession.id,
         status: 'Present',
-        user_id: currentUser?.id || currentUser?.email || null,
-        created_at: new Date().toISOString()
+        verified_method: 'Teacher Face-ID Biometric',
+        marked_by: currentUser?.id || null,
+        capture_metadata: { confidence: match.confidence, mode: 'single' },
       };
 
-      let { error } = await (supabase.from('attendance') as any).insert(attendanceData);
-      
+      const { error } = await (supabase.from('attendance') as any).insert(attendanceData);
+      if (error) {
+        setCameraError(error.code === '23505' ? 'This student is already marked for the active session.' : error.message);
+        setIsAnalyzing(false);
+        return;
+      }
+      setIdentified(prev => [match, ...prev]);
       const student = students.find(s => s.id === match.studentId);
       if (student) {
         logEvent('Attendance', 'Student Identified', student.name);
@@ -135,7 +188,10 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
   };
 
   const captureAndProcessGroup = async () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !activeSession) {
+      setCameraError('Open an attendance session before scanning students.');
+      return;
+    }
     setIsAnalyzing(true);
     
     const enrolled = students
@@ -161,24 +217,26 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
       if (match.label !== 'unknown' && match.distance < 0.6) {
         const student = students.find(s => s.id === match.label);
         if (student && !identified.find(i => i.studentId === student.id)) {
-          setIdentified(prev => [{ studentId: student.id, name: student.name, confidence: (1 - match.distance) * 100 }, ...prev]);
-          
           const { data: { session } } = await supabase.auth.getSession();
           const currentUser = session?.user;
           const attendanceData: any = {
             student_id: student.id,
+            student_name: student.name,
             classroom_id: classId,
+            session_id: activeSession.id,
             status: 'Present',
-            user_id: currentUser?.id || currentUser?.email || null,
-            created_at: new Date().toISOString()
+            verified_method: 'Teacher Face-ID Biometric',
+            marked_by: currentUser?.id || null,
+            capture_metadata: { confidence: (1 - match.distance) * 100, mode: 'group' },
           };
 
-          let { error } = await (supabase.from('attendance') as any).insert(attendanceData);
+          const { error } = await (supabase.from('attendance') as any).insert(attendanceData);
           
           if (error) {
-             console.error('Failed to log attendance in group scan:', error);
+             if (error.code !== '23505') setCameraError(error.message || 'Failed to record attendance.');
+             continue;
           }
-
+          setIdentified(prev => [{ studentId: student.id, name: student.name, confidence: (1 - match.distance) * 100 }, ...prev]);
           await EmailService.sendAttendanceEmail(student.email, student.name, className);
         }
       }
@@ -190,6 +248,17 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 bg-slate-50 dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800">
       <div className="space-y-6">
+        <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-blue-500">Teacher authorization</p>
+            <p className="text-xs text-slate-500">{activeSession ? `Session open until ${new Date(activeSession.ends_at).toLocaleTimeString()}` : 'Open a session before any attendance can be recorded.'}</p>
+          </div>
+          {activeSession ? (
+            <button onClick={closeAttendanceSession} disabled={sessionBusy} className="px-4 py-2 rounded-xl bg-rose-500/10 text-rose-600 text-[10px] font-bold uppercase tracking-widest disabled:opacity-40">{sessionBusy ? 'Closing…' : 'Close session'}</button>
+          ) : (
+            <button onClick={openAttendanceSession} disabled={sessionBusy} className="px-4 py-2 rounded-xl bg-blue-600 text-white text-[10px] font-bold uppercase tracking-widest disabled:opacity-40">{sessionBusy ? 'Opening…' : 'Open session'}</button>
+          )}
+        </div>
         <div className="flex gap-4 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl w-fit">
           <button 
             onClick={() => setMode('single')}
@@ -265,7 +334,7 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
           ) : (
             <div className="flex gap-4">
               <button 
-                disabled={!isCameraActive || isAnalyzing}
+                disabled={!isCameraActive || !activeSession || isAnalyzing}
                 onClick={mode === 'single' ? processSingle : captureAndProcessGroup}
                 className="flex-1 py-4 bg-blue-600 text-white rounded-[20px] font-bold uppercase tracking-widest text-[10px]"
               >

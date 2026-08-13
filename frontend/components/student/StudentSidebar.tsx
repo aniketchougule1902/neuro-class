@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { 
   LayoutDashboard, BookOpen, Clock, 
-  FileText, BarChart3, Settings, LogOut, Home
+  FileText, BarChart3, Settings, LogOut, Home, Sparkles, MessageCircle
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -25,6 +25,8 @@ export const StudentSidebar: React.FC<SidebarProps> = ({ activeSection, setActiv
     { id: 'tests', label: 'Active Tests', icon: <FileText size={20} /> },
     { id: 'performance', label: 'Performance', icon: <BarChart3 size={20} /> },
     { id: 'history', label: 'History', icon: <Clock size={20} /> },
+    { id: 'project-advisor', label: 'Project Advisor', icon: <Sparkles size={20} /> },
+    { id: 'learning-bot', label: 'Classroom AI', icon: <MessageCircle size={20} /> },
     { id: 'settings', label: 'Settings', icon: <Settings size={20} /> },
   ];
 

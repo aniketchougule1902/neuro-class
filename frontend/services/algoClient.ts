@@ -120,11 +120,18 @@ export const algoClient = {
       const receiptHeader = response.headers.get('PAYMENT-RESPONSE') || response.headers.get('payment-response');
       const receipt = parseSettlementReceiptHeader(receiptHeader);
       const data = await response.json().catch(() => null);
+      const enrichedReceipt = data && typeof data === 'object' && 'x402' in data
+        ? (data as { x402: Record<string, unknown> }).x402
+        : null;
 
       if (receipt) {
         return {
           status: 'authorised',
-          receipt,
+          receipt: {
+            ...receipt,
+            explorerUrl: typeof enrichedReceipt?.explorerUrl === 'string' ? enrichedReceipt.explorerUrl : receipt.explorerUrl,
+            serviceName: typeof enrichedReceipt?.serviceName === 'string' ? enrichedReceipt.serviceName : receipt.serviceName,
+          },
           data: data as T,
         };
       }
@@ -140,6 +147,8 @@ export const algoClient = {
             payer: String(x402Obj.payer || ''),
             amount: String(x402Obj.amount || ''),
             receiptHeader: String(x402Obj.receiptHeader || ''),
+            explorerUrl: typeof x402Obj.explorerUrl === 'string' ? x402Obj.explorerUrl : undefined,
+            serviceName: typeof x402Obj.serviceName === 'string' ? x402Obj.serviceName : undefined,
           },
           data: data as T,
         };

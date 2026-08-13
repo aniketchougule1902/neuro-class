@@ -34,9 +34,16 @@ export const InstructorDashboard: React.FC = () => {
       case 'tests':
         return <TestDesigner />;
       case 'attendance':
-        return (
+        return selectedClassId ? (
           <div className="h-full overflow-y-auto p-6 scrollbar-hide">
-            <AttendanceSystem classId="CS-101" className="Data Structures & Algorithmic Security" />
+            <AttendanceSystem classId={selectedClassId} className="Selected classroom" />
+          </div>
+        ) : (
+          <div className="h-full overflow-y-auto p-6 scrollbar-hide">
+            <div className="mb-6 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5 text-sm text-slate-600 dark:text-slate-300">
+              Choose one of your classrooms to open a teacher-authorized attendance session. Attendance is never recorded against a demo or hardcoded class.
+            </div>
+            <ClassroomList onSelect={handleSelectClass} />
           </div>
         );
       case 'monitoring':
