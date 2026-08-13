@@ -142,7 +142,8 @@ export const algorandService = {
       });
 
       const signedTxn = txn.signTxn(account.sk);
-      const { txId } = await algodClient.sendRawTransaction(signedTxn).do();
+      const res = await algodClient.sendRawTransaction(signedTxn).do();
+      const txId = res.txid || (res as any).txId;
       
       console.log(`Refunded ${amountAlgo} ALGO to ${receiverAddress}. TxID: ${txId}`);
       return txId;
