@@ -22,39 +22,11 @@ export const ActiveTests: React.FC<ActiveTestsProps> = ({ onStartTest }) => {
   const fetchTests = async () => {
     setLoading(true);
     try {
-      // 1. Get all classrooms the student is enrolled in
-      const { data: enrollments } = await supabase
+      // 1. Get student profiles and enrolled classrooms
+      const { data: studentProfiles } = await supabase
         .from('students')
-        .select('classroom_id')
+        .select('id, classroom_id')
         .eq('user_id', user!.id);
-
-      if (enrollments && enrollments.length > 0) {
-        const classroomIds = enrollments.map(e => e.classroom_id);
-        
-        // 2. Fetch tests for those classrooms
-        const { data: testsData } = await supabase
-          .from('tests')
-          .select('*, classrooms(name, code)')
-          .in('classroom_id', classroomIds)
-          .order('created_at', { ascending: false });
-          
-        if (testsData) {
-          // 3. Filter out tests the student has already submitted
-          const { data: results } = await supabase
-            .from('test_results')
-            .select('test_id')
-            .eq('student_id', enrollments[0].id); // NOTE: This assumes 1 student profile per user or we fetch using student_id
-            
-          // Wait, the RLS policy says student can view own results.
-          // Let's get the student profile IDs first.
-          const studentIds = enrollments.map(e => (e as any).id); // Actually the ID isn't selected above. Let's fix that.
-        }
-
-        // Refined Fetching Logic
-        const { data: studentProfiles } = await supabase
-          .from('students')
-          .select('id, classroom_id')
-          .eq('user_id', user!.id);
           
         if (studentProfiles) {
            const classIds = studentProfiles.map(s => s.classroom_id);
@@ -76,7 +48,6 @@ export const ActiveTests: React.FC<ActiveTestsProps> = ({ onStartTest }) => {
            const pendingTests = (availableTests || []).filter(t => !completedTestIds.has(t.id));
            setTests(pendingTests);
         }
-      }
     } catch (e) {
       console.error(e);
     } finally {

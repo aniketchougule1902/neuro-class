@@ -4,6 +4,7 @@ import { X, Camera, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../database/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { CameraService } from '../../services/ml/CameraService';
+import { LocalMLService } from '../../services/ml/LocalMLService';
 import { cn } from '../../lib/utils';
 
 interface JoinClassWizardProps {
@@ -87,6 +88,14 @@ export const JoinClassWizard: React.FC<JoinClassWizardProps> = ({ isOpen, onClos
     setError(null);
     
     try {
+      // Generate the descriptor from the live camera frame. The attendance
+      // matcher uses this compact vector; raw samples remain available for
+      // user-facing enrollment evidence.
+      if (!videoRef.current) throw new Error('Camera is not active. Please return to the biometrics step.');
+      await LocalMLService.loadModels();
+      const faceDescriptor = await LocalMLService.getFaceDescriptor(videoRef.current);
+      if (!faceDescriptor) throw new Error('No face detected. Look directly at the camera and try again.');
+
       // 1. Lookup Classroom
       const sanitizedCode = joinCode.trim().toUpperCase();
       const { data: classroom, error: classErr } = await supabase
@@ -110,6 +119,7 @@ export const JoinClassWizard: React.FC<JoinClassWizardProps> = ({ isOpen, onClos
           phone: studentDetails.phoneNumber,
           email: user.email || '',
           face_samples: studentDetails.faceSamples,
+          face_descriptor: JSON.stringify(Array.from(faceDescriptor)),
           joined_at: new Date().toISOString()
         });
       

@@ -1,4 +1,4 @@
-// File: D:\neuroclass-ai---ultra-local\backend\app\api\x402\demo-wallet\route.ts
+// File: /home/ubuntu/neuro-class/backend/app/api/x402/demo-wallet/route.ts
 import * as entry from '../../../../../../app/api/x402/demo-wallet/route.js'
 import type { NextRequest } from 'next/server.js'
 

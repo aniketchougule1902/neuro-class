@@ -4,8 +4,18 @@ import '@tensorflow/tfjs';
 
 let ssdModel: cocoSsd.ObjectDetection | null = null;
 let modelsLoaded = false;
+let modelLoadPromise: Promise<void> | null = null;
 
-const MODEL_URL = 'https://cdn.jsdelivr.net/gh/vladmandic/face-api@master/model';
+// Pin the model assets to the same face-api version used by the application.
+// This avoids production builds silently pulling a moving `master` revision.
+const MODEL_URL = 'https://cdn.jsdelivr.net/gh/vladmandic/face-api@1.7.15/model';
+
+export interface FaceMatchResult {
+  studentId?: string;
+  name?: string;
+  confidence: number;
+  box?: { x: number; y: number; width: number; height: number };
+}
 
 export interface MalpracticeResult {
   isMalpractice: boolean;
@@ -69,10 +79,12 @@ const PITCH_DOWN_MIN       = 0.40;   // natural exam writing bow — IGNORED
 // unless combined with absence signal.
 
 export const LocalMLService = {
-  async loadModels() {
+  async loadModels(): Promise<void> {
     if (modelsLoaded) return;
-    console.log('[LocalML] Loading proctoring models…');
-    try {
+    if (modelLoadPromise) return modelLoadPromise;
+
+    modelLoadPromise = (async () => {
+      console.log('[LocalML] Loading proctoring models…');
       await Promise.all([
         faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
         faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
@@ -82,9 +94,13 @@ export const LocalMLService = {
       ssdModel = await cocoSsd.load();
       modelsLoaded = true;
       console.log('[LocalML] Engine ready — Small-Object + Exam-Aware Mode');
-    } catch (error) {
+    })().catch(error => {
+      modelLoadPromise = null;
       console.error('[LocalML] Model load error:', error);
-    }
+      throw error;
+    });
+
+    return modelLoadPromise;
   },
 
   // ─────────────────────────────────────────────
@@ -420,8 +436,8 @@ export const LocalMLService = {
   async matchFace(
     videoElement: HTMLVideoElement,
     enrolledDescriptors: { id: string; name: string; descriptor: Float32Array }[],
-  ) {
-    if (!videoElement.videoWidth || !videoElement.videoHeight) return null;
+  ): Promise<FaceMatchResult | null> {
+    if (!videoElement.videoWidth || !videoElement.videoHeight || enrolledDescriptors.length === 0) return null;
     const detections = await this.detectFacesRobustly(videoElement);
     if (!detections.length) return null;
     const descriptor = detections[0].descriptor;
@@ -431,7 +447,13 @@ export const LocalMLService = {
     const bestMatch = faceMatcher.findBestMatch(descriptor);
     if (bestMatch.label !== 'unknown' && bestMatch.distance < 0.65) {
       const student = enrolledDescriptors.find(s => s.id === bestMatch.label);
-      return { studentId: student?.id, name: student?.name, confidence: Math.round((1 - bestMatch.distance) * 100) };
+      const box = detections[0].detection.box;
+      return {
+        studentId: student?.id,
+        name: student?.name,
+        confidence: Math.round((1 - bestMatch.distance) * 100),
+        box: { x: box.x, y: box.y, width: box.width, height: box.height },
+      };
     }
     return null;
   },

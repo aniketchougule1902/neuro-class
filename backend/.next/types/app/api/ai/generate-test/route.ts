@@ -1,4 +1,4 @@
-// File: D:\neuroclass-ai---ultra-local\backend\app\api\ai\generate-test\route.ts
+// File: /home/ubuntu/neuro-class/backend/app/api/ai/generate-test/route.ts
 import * as entry from '../../../../../../app/api/ai/generate-test/route.js'
 import type { NextRequest } from 'next/server.js'
 

@@ -1,5 +1,5 @@
 import { supabase } from '../database/supabase';
-import { Test } from '../frontend/types';
+import { Test } from '../types';
 
 export const testService = {
   async saveTest(test: Test) {

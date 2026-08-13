@@ -4,12 +4,11 @@
  */
 
 export const getBackendBaseUrl = (): string => {
-  const url = import.meta.env.VITE_BACKEND_URL;
+  const env = (import.meta as { env?: { VITE_BACKEND_URL?: string } }).env;
+  const url = env?.VITE_BACKEND_URL;
   if (url && url.trim() !== '') {
-    // Remove trailing slash if present
     return url.replace(/\/$/, '');
   }
-  // Default to local backend server port
   return 'http://localhost:9000';
 };
 

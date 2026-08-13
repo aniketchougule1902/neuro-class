@@ -14,6 +14,8 @@ import {
   AlertTriangle, BookOpen, TrendingUp, Database
 } from 'lucide-react';
 import { TestPaperEvaluator } from '../evaluation/TestPaperEvaluator';
+import { LocalMLService } from '../../services/ml/LocalMLService';
+import { CameraService } from '../../services/ml/CameraService';
 import { AssignmentEvaluator } from '../evaluation/AssignmentEvaluator';
 import { AnalyticsDashboard } from '../evaluation/AnalyticsDashboard';
 import { AITestGeneratorModal } from './AITestGeneratorModal';
@@ -52,6 +54,19 @@ interface ClassroomViewProps {
 type ActiveSection = 'dashboard' | 'classrooms' | 'attendance' | 'tests' | 'monitoring' | 'reports' | 'settings' | 'classroom-detail';
 
 const ATTENDANCE_DATA = []; // Removed mock data
+
+const parseFaceDescriptor = (value: unknown): Float32Array | null => {
+  if (!value) return null;
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return new Float32Array(parsed.map(Number));
+    }
+  } catch {
+    // Invalid legacy biometrics are ignored instead of breaking the scan loop.
+  }
+  return null;
+};
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -1501,6 +1516,10 @@ const FaceIdModule: React.FC<{ user: any, classId: string, onShowToast: any }> =
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [detectionBox, setDetectionBox] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const scanTimeoutRef = useRef<number | null>(null);
+  const scanActiveRef = useRef(false);
+  const isRecognizingRef = useRef(false);
+  const seenStudentIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -1515,27 +1534,43 @@ const FaceIdModule: React.FC<{ user: any, classId: string, onShowToast: any }> =
     fetchStudents();
   }, [classId]);
 
-  const logAttendance = async (studentId: string) => {
+  const logAttendance = async (studentId: string, studentName: string): Promise<boolean> => {
     try {
-      const attendanceData: any = {
+      // Idempotency guard: one attendance event per student per classroom/day.
+      const dayStart = new Date();
+      dayStart.setHours(0, 0, 0, 0);
+      const { data: existing, error: lookupError } = await (supabase.from('attendance') as any)
+        .select('id')
+        .eq('classroom_id', classId)
+        .eq('student_id', studentId)
+        .gte('verified_at', dayStart.toISOString())
+        .limit(1);
+      if (lookupError) throw lookupError;
+      if (existing?.length) return true;
+
+      const { error } = await (supabase.from('attendance') as any).insert({
         student_id: studentId,
+        student_name: studentName,
         classroom_id: classId,
         status: 'Present',
-        user_id: currentUserId,
-        created_at: new Date().toISOString()
-      };
-
-      const { error } = await (supabase.from('attendance') as any).insert(attendanceData);
+        verified_method: 'Face-ID Biometric',
+        verified_at: new Date().toISOString()
+      });
       if (error) throw error;
+      return true;
     } catch (err) {
       console.error('Failed to log attendance:', err);
+      onShowToast('Attendance could not be saved. Check the database connection.', 'error');
+      return false;
     }
   };
 
   const confirmMatch = async () => {
     if (pendingMatch) {
+      const saved = await logAttendance(pendingMatch.id, pendingMatch.name);
+      if (!saved) return;
+      seenStudentIdsRef.current.add(pendingMatch.id);
       setIdentified(prev => [pendingMatch, ...prev]);
-      await logAttendance(pendingMatch.id);
       onShowToast(`Verified match: ${pendingMatch.name}`, 'success');
       setPendingMatch(null);
       setDetectionBox(null);
@@ -1550,12 +1585,13 @@ const FaceIdModule: React.FC<{ user: any, classId: string, onShowToast: any }> =
 
   const toggleScan = async () => {
     if (isScanning) {
-      if (videoRef.current?.srcObject) {
-        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-        tracks.forEach(t => t.stop());
-      }
+      if (scanTimeoutRef.current) window.clearTimeout(scanTimeoutRef.current);
+      scanTimeoutRef.current = null;
+      scanActiveRef.current = false;
+      isRecognizingRef.current = false;
+      CameraService.stopCamera((videoRef.current?.srcObject as MediaStream | null) || null);
+      if (videoRef.current) videoRef.current.srcObject = null;
       setScanning(false);
-      setIdentified([]);
       setPendingMatch(null);
       setDetectionBox(null);
       setCameraError(null);
@@ -1563,61 +1599,103 @@ const FaceIdModule: React.FC<{ user: any, classId: string, onShowToast: any }> =
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setScanning(true);
-        setCameraError(null);
-        onShowToast('Starting AI facial analysis...', 'info');
-        
-        const scanInterval = setInterval(async () => {
-          if (!videoRef.current?.srcObject) {
-            clearInterval(scanInterval);
+      if (!students.length) {
+        onShowToast('Enroll students before starting attendance.', 'warn');
+        return;
+      }
+      setCameraError(null);
+      onShowToast('Loading on-device face recognition models...', 'info');
+      await LocalMLService.loadModels();
+      const stream = await CameraService.startCamera();
+      if (!videoRef.current) return;
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+      scanActiveRef.current = true;
+      setScanning(true);
+      seenStudentIdsRef.current = new Set();
+      onShowToast('Face attendance is active. Look at the camera.', 'success');
+
+      const runRecognition = async () => {
+        if (!videoRef.current?.srcObject || !scanActiveRef.current || isRecognizingRef.current) return;
+        isRecognizingRef.current = true;
+        try {
+          const enrolled = students
+            .map(student => ({
+              id: student.id,
+              name: student.name,
+              descriptor: parseFaceDescriptor(student.face_descriptor)
+            }))
+            .filter((student): student is { id: string; name: string; descriptor: Float32Array } => Boolean(student.descriptor));
+
+          if (!enrolled.length) {
+            onShowToast('No enrolled face descriptors found. Ask students to re-enroll biometrics.', 'warn');
             return;
           }
 
-          setIdentified(currentIdentified => {
-            if (students.length > 0 && !pendingMatch) {
-              const randomStudent = students[Math.floor(Math.random() * students.length)];
-              const confidence = Math.floor(Math.random() * 40) + 60; // 60-100 range
-              
-              if (!currentIdentified.find(s => s.id === randomStudent.id)) {
-                  // Simulate bounding box
-                  setDetectionBox({
-                      x: Math.random() * 40 + 20,
-                      y: Math.random() * 30 + 20,
-                      w: 30,
-                      h: 40
-                  });
+          const match = await LocalMLService.matchFace(videoRef.current, enrolled);
+          if (!match?.studentId || !match.name) {
+            setDetectionBox(null);
+            return;
+          }
 
-                  const matchData = { 
-                      ...randomStudent, 
-                      time: new Date().toLocaleTimeString(),
-                      confidence,
-                      uniqueId: uuidv4()
-                  };
+          const box = match.box;
+          if (box && videoRef.current.videoWidth && videoRef.current.videoHeight) {
+            setDetectionBox({
+              x: (box.x / videoRef.current.videoWidth) * 100,
+              y: (box.y / videoRef.current.videoHeight) * 100,
+              w: (box.width / videoRef.current.videoWidth) * 100,
+              h: (box.height / videoRef.current.videoHeight) * 100
+            });
+          }
 
-                  if (confidence >= 80) {
-                      onShowToast(`Student recognized: ${randomStudent.name} (${confidence}%)`, 'success');
-                      logAttendance(randomStudent.id);
-                      setTimeout(() => setDetectionBox(null), 2000);
-                      return [matchData, ...currentIdentified];
-                  } else {
-                      setPendingMatch(matchData);
-                      onShowToast('Potential match detected. Confirmation required.', 'warn');
-                      return currentIdentified;
-                  }
-              }
+          if (seenStudentIdsRef.current.has(match.studentId) || pendingMatch) return;
+          const student = students.find(candidate => candidate.id === match.studentId);
+          const matchData = {
+            ...student,
+            id: match.studentId,
+            name: match.name,
+            confidence: match.confidence,
+            time: new Date().toLocaleTimeString(),
+            uniqueId: uuidv4()
+          };
+
+          if (match.confidence >= 80) {
+            const saved = await logAttendance(match.studentId, match.name);
+            if (saved) {
+              seenStudentIdsRef.current.add(match.studentId);
+              setIdentified(prev => [matchData, ...prev]);
+              onShowToast(`Student recognized: ${match.name} (${match.confidence}%)`, 'success');
             }
-            return currentIdentified;
-          });
-        }, 5000);
-      }
+          } else {
+            setPendingMatch(matchData);
+            onShowToast('Potential match detected. Manual confirmation required.', 'warn');
+          }
+        } catch (error) {
+          console.error('[Attendance] Recognition error:', error);
+          onShowToast('Face recognition temporarily unavailable.', 'warn');
+        } finally {
+          isRecognizingRef.current = false;
+          if (videoRef.current?.srcObject && scanActiveRef.current) {
+            scanTimeoutRef.current = window.setTimeout(runRecognition, 1800);
+          }
+        }
+      };
+
+      scanTimeoutRef.current = window.setTimeout(runRecognition, 800);
     } catch (e: any) {
+      CameraService.stopCamera((videoRef.current?.srcObject as MediaStream | null) || null);
       setCameraError(e.message || 'Camera access denied.');
       onShowToast(e.message || 'Camera access denied.', 'warn');
     }
   };
+
+  useEffect(() => {
+    return () => {
+      scanActiveRef.current = false;
+      if (scanTimeoutRef.current) window.clearTimeout(scanTimeoutRef.current);
+      CameraService.stopCamera((videoRef.current?.srcObject as MediaStream | null) || null);
+    };
+  }, []);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-12 gap-10">

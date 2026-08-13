@@ -13,6 +13,17 @@ interface AttendanceSystemProps {
   className: string;
 }
 
+const toDescriptor = (value: unknown): Float32Array | null => {
+  if (!value) return null;
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    if (Array.isArray(parsed) && parsed.length > 0) return new Float32Array(parsed.map(Number));
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, className }) => {
   const [mode, setMode] = useState<'single' | 'group' | 'register'>('single');
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -68,8 +79,8 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
       .map(s => ({
         id: s.id,
         name: s.name,
-        descriptor: new Float32Array(JSON.parse(s.face_descriptor) as number[])
-      }));
+        descriptor: toDescriptor(s.face_descriptor)
+      })).filter((s): s is { id: string; name: string; descriptor: Float32Array } => Boolean(s.descriptor));
 
     const match = await LocalMLService.matchFace(videoRef.current, enrolled);
     
@@ -132,8 +143,8 @@ export const AttendanceSystem: React.FC<AttendanceSystemProps> = ({ classId, cla
       .map(s => ({
         id: s.id,
         name: s.name,
-        descriptor: new Float32Array(JSON.parse(s.face_descriptor) as number[])
-      }));
+        descriptor: toDescriptor(s.face_descriptor)
+      })).filter((s): s is { id: string; name: string; descriptor: Float32Array } => Boolean(s.descriptor));
 
     // Find all faces in the current frame
     const detections = await (faceapi as any).detectAllFaces(videoRef.current, new (faceapi as any).TinyFaceDetectorOptions())

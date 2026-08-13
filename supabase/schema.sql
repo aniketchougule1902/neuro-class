@@ -38,6 +38,9 @@ CREATE TABLE IF NOT EXISTS public.students (
   phone TEXT,
   email TEXT,
   face_samples JSONB DEFAULT '[]'::jsonb,
+  -- 128-dimensional face-api descriptor used for local matching.
+  -- Store the vector, never a raw camera frame, in the matching path.
+  face_descriptor JSONB,
   joined_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   UNIQUE(classroom_id, email)
 );
@@ -71,7 +74,22 @@ CREATE TABLE IF NOT EXISTS public.test_submissions (
   submitted_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 6. BIOMETRIC ATTENDANCE TABLE
+-- 6. EXAM ATTEMPTS & PROCTORING EVENTS
+CREATE TABLE IF NOT EXISTS public.attempts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  test_id UUID REFERENCES public.tests(id) ON DELETE CASCADE,
+  student_id TEXT NOT NULL,
+  status TEXT DEFAULT 'in_progress',
+  score NUMERIC,
+  answers JSONB DEFAULT '{}'::jsonb,
+  violations JSONB DEFAULT '[]'::jsonb,
+  started_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  finished_at TIMESTAMP WITH TIME ZONE,
+  submitted_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 7. BIOMETRIC ATTENDANCE TABLE
 CREATE TABLE IF NOT EXISTS public.attendance (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   classroom_id UUID REFERENCES public.classrooms(id) ON DELETE CASCADE,
@@ -119,6 +137,7 @@ ALTER TABLE public.classrooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.test_submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.attempts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.evaluations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.x402_payments ENABLE ROW LEVEL SECURITY;
@@ -131,6 +150,13 @@ CREATE POLICY "Allow anonymous insert classrooms" ON public.classrooms FOR INSER
 
 CREATE POLICY "Allow anonymous select tests" ON public.tests FOR SELECT USING (true);
 CREATE POLICY "Allow anonymous insert tests" ON public.tests FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow anonymous select attempts" ON public.attempts FOR SELECT USING (true);
+CREATE POLICY "Allow anonymous insert attempts" ON public.attempts FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anonymous update attempts" ON public.attempts FOR UPDATE USING (true) WITH CHECK (true);
+
+CREATE POLICY "Allow anonymous select attendance" ON public.attendance FOR SELECT USING (true);
+CREATE POLICY "Allow anonymous insert attendance" ON public.attendance FOR INSERT WITH CHECK (true);
 
 CREATE POLICY "Allow anonymous select evaluations" ON public.evaluations FOR SELECT USING (true);
 CREATE POLICY "Allow anonymous insert evaluations" ON public.evaluations FOR INSERT WITH CHECK (true);
