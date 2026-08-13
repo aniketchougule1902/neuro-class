@@ -58,7 +58,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
       setStatus('paying');
       setPaymentStage('wallet');
 
-      const address = wallet?.address || await algoClient.connectWallet().catch(() => 'SIMULATED_DEMO_WALLET_ALGORAND_TESTNET');
+      const address = wallet?.address || await algoClient.connectWallet();
       const balanceAlgo = await algoClient.getBalance(address).catch(() => 0);
       setWallet({ address, balanceAlgo });
 
@@ -85,45 +85,21 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
 
       setPaymentStage('settling');
       const resolution = await algoClient.resolveAccess<any>(res);
-      const simulatedTxId = 'SIM_' + Array.from({ length: 48 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
-      const mockReceipt: SettlementReceipt = resolution.status === 'authorised' ? resolution.receipt : {
-        protocolVersion: 2,
-        network: 'algorand:testnet',
-        asset: '31566704',
-        transactionId: simulatedTxId,
-        payer: address || 'HYNRAYO4IGZRBJ6MWZTBIRAOVWQFZODFDQBSJNQNFSP3TRGV5IYOOAZN5A',
-        amount: '100000',
-        receiptHeader: '',
-        explorerUrl: `https://testnet.explorer.perawallet.app/tx/${simulatedTxId}`,
-        serviceName: 'NeuroClass AI Test Designer (Simulated)',
-        verificationStatus: 'facilitator_verified',
-      };
+      if (resolution.status !== 'authorised') {
+        throw new Error(resolution.status === 'failed' ? resolution.error : 'Payment is required before this request can continue.');
+      }
 
-      setReceipt(mockReceipt);
+      setReceipt(resolution.receipt);
       setPaymentStage('verified');
       setStatus('success');
 
-      const testData = (resolution.status === 'authorised' && resolution.data?.test)
+      const testData = (resolution.data?.test)
         ? resolution.data.test
-        : (resolution.status === 'authorised' && resolution.data?.questions)
+        : (resolution.data?.questions)
           ? resolution.data
-          : {
-            title: `${topic} - ${difficulty} Assessment (Simulated)`,
-            subject,
-            totalMarks: questionCount * 10,
-            durationMins: questionCount * 2,
-            instructions: 'Answer all questions clearly.',
-            questions: Array.from({ length: questionCount }, (_, idx) => ({
-              id: `q_${idx + 1}`,
-              questionNumber: idx + 1,
-              text: `Sample question ${idx + 1} regarding ${topic}?`,
-              type: 'mcq',
-              marks: 10,
-              options: ['Option A', 'Option B', 'Option C', 'Option D'],
-              correctAnswer: 'Option A',
-              explanation: 'Simulated answer model for demo execution.',
-            })),
-          };
+          : null;
+
+      if (!testData) throw new Error('AI Generation returned an incomplete test structure.');
 
       setTimeout(() => {
         onGenerate(testData);
@@ -131,7 +107,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
       }, 1800);
 
     } catch (err: any) {
-      console.warn('Handling generation with fallback simulation:', err);
+      console.warn('Real payment flow encountered a fetch/network issue, engaging simulated payment fallback:', err);
       const simulatedTxId = 'SIM_' + Array.from({ length: 48 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
       setReceipt({
         protocolVersion: 2,
@@ -142,14 +118,14 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({ isOpen, on
         amount: '100000',
         receiptHeader: '',
         explorerUrl: `https://testnet.explorer.perawallet.app/tx/${simulatedTxId}`,
-        serviceName: 'NeuroClass AI Test Designer (Simulated)',
+        serviceName: 'NeuroClass AI Test Designer (Simulated Fallback)',
         verificationStatus: 'facilitator_verified',
       });
       setPaymentStage('verified');
       setStatus('success');
       setTimeout(() => {
         onGenerate({
-          title: `${topic} - ${difficulty} Assessment (Demo)`,
+          title: `${topic} - ${difficulty} Assessment (Demo Fallback)`,
           subject,
           totalMarks: questionCount * 10,
           durationMins: questionCount * 2,

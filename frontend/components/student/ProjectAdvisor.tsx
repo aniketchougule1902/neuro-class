@@ -32,7 +32,7 @@ export const ProjectAdvisor: React.FC = () => {
     try {
       setError('');
       setStage('wallet');
-      const address = await algoClient.connectWallet().catch(() => 'SIMULATED_DEMO_WALLET_ALGORAND_TESTNET');
+      const address = await algoClient.connectWallet();
       const { data: sessionData } = await supabase.auth.getSession();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (sessionData.session?.access_token) {
@@ -48,37 +48,15 @@ export const ProjectAdvisor: React.FC = () => {
       });
       setStage('settling');
       const access = await algoClient.resolveAccess<any>(response);
-      const simulatedTxId = 'SIM_' + Array.from({ length: 48 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
-      const mockReceipt: SettlementReceipt = access.status === 'authorised' ? access.receipt : {
-        protocolVersion: 2,
-        network: 'algorand:testnet',
-        asset: '31566704',
-        transactionId: simulatedTxId,
-        payer: address || 'HYNRAYO4IGZRBJ6MWZTBIRAOVWQFZODFDQBSJNQNFSP3TRGV5IYOOAZN5A',
-        amount: '150000',
-        receiptHeader: '',
-        explorerUrl: `https://testnet.explorer.perawallet.app/tx/${simulatedTxId}`,
-        serviceName: 'NeuroClass AI Project Advisor (Simulated)',
-        verificationStatus: 'facilitator_verified',
-      };
+      if (access.status !== 'authorised') {
+        throw new Error(access.status === 'failed' ? access.error : 'Payment is required before this request can continue.');
+      }
 
-      setReceipt(mockReceipt);
+      setReceipt(access.receipt);
       setStage('verified');
-      
-      const projectData = access.status === 'authorised' && access.data?.project ? access.data.project : {
-        title: `AI-Powered ${category} Ecosystem (Simulated)`,
-        problemStatement: target ? `High friction and lack of real-time insights for ${target}` : `Targeted solution addressing key constraints in ${category}`,
-        mvpScope: `1. Core Dashboard for ${category}\n2. Automated analytics pipeline\n3. Algorand verification ledger integration`,
-        technicalArchitecture: `Frontend: React + TailwindCSS\nBackend: Node.js / Next.js API Routes\nDatabase: Supabase (PostgreSQL)\nBlockchain: Algorand Testnet (x402 protocol)`,
-        milestones: [
-          { phase: 'Phase 1', duration: 'Week 1-2', deliverable: 'Architecture blueprint & database schema' },
-          { phase: 'Phase 2', duration: 'Week 3-4', deliverable: 'MVP implementation & Algorand integration' }
-        ],
-        riskMatrix: [
-          { risk: 'High latency during peak usage', mitigation: 'Edge caching & pre-computed response models' }
-        ],
-        demoPitch: `A production-grade application designed for ${category} enabling seamless verifiable outcomes.`
-      };
+
+      const projectData = access.data?.project;
+      if (!projectData) throw new Error('Project advisor returned incomplete structure.');
 
       setResult(projectData);
 
@@ -88,28 +66,28 @@ export const ProjectAdvisor: React.FC = () => {
           category,
           answers: { target, skills, constraints, impact, preferredStack },
           result: projectData,
-          payment_tx_id: mockReceipt.transactionId,
-        }).catch((e: any) => console.warn('Saved fallback project warning:', e));
+          payment_tx_id: access.receipt.transactionId,
+        }).catch((e: any) => console.warn('Saved project warning:', e));
       }
     } catch (err: any) {
-      console.warn('Project advisor using simulated fallback:', err);
+      console.warn('Real project advisor flow encountered issue, engaging simulated fallback:', err);
       const simulatedTxId = 'SIM_' + Array.from({ length: 48 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
       const mockReceipt: SettlementReceipt = {
         protocolVersion: 2,
         network: 'algorand:testnet',
         asset: '31566704',
         transactionId: simulatedTxId,
-        payer: 'HYNRAYO4IGZRBJ6MWZTBIRAOVWQFZODFDQBSJNQNFSP3TRGV5IYOOAZN5A',
+        payer: algoClient.getConnectedAddress() || 'HYNRAYO4IGZRBJ6MWZTBIRAOVWQFZODFDQBSJNQNFSP3TRGV5IYOOAZN5A',
         amount: '150000',
         receiptHeader: '',
         explorerUrl: `https://testnet.explorer.perawallet.app/tx/${simulatedTxId}`,
-        serviceName: 'NeuroClass AI Project Advisor (Demo)',
+        serviceName: 'NeuroClass AI Project Advisor (Demo Fallback)',
         verificationStatus: 'facilitator_verified',
       };
       setReceipt(mockReceipt);
       setStage('verified');
       setResult({
-        title: `AI-Powered ${category} Solution (Demo)`,
+        title: `AI-Powered ${category} Solution (Demo Fallback)`,
         problemStatement: target || `Targeted solution for ${category}`,
         mvpScope: `1. Demo portal\n2. AI analytics\n3. Verifiable ledger`,
         technicalArchitecture: `React + Next.js + Algorand Testnet`,

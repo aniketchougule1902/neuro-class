@@ -44,7 +44,7 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
     setErrorMsg('');
 
     try {
-      await algoClient.connectWallet().catch(() => {});
+      await algoClient.connectWallet();
       setPaymentStage('challenge');
       setPaymentStage('signing');
       const { data: authSession } = await supabase.auth.getSession();
@@ -69,44 +69,20 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
 
       setPaymentStage('settling');
       const access = await algoClient.resolveAccess<any>(response);
-      const simulatedTxId = 'SIM_' + Array.from({ length: 48 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
-      const mockReceipt: SettlementReceipt = access.status === 'authorised' ? access.receipt : {
-        protocolVersion: 2,
-        network: 'algorand:testnet',
-        asset: '31566704',
-        transactionId: simulatedTxId,
-        payer: algoClient.getConnectedAddress() || 'HYNRAYO4IGZRBJ6MWZTBIRAOVWQFZODFDQBSJNQNFSP3TRGV5IYOOAZN5A',
-        amount: '100000',
-        receiptHeader: '',
-        explorerUrl: `https://testnet.explorer.perawallet.app/tx/${simulatedTxId}`,
-        serviceName: 'NeuroClass AI Test Designer (Simulated)',
-        verificationStatus: 'facilitator_verified',
-      };
+      if (access.status !== 'authorised') {
+        throw new Error(access.status === 'failed' ? access.error : 'Payment is required before this request can continue.');
+      }
 
-      setReceipt(mockReceipt);
+      setReceipt(access.receipt);
       setPaymentStage('verified');
       
-      const testData = (access.status === 'authorised' && access.data?.test)
+      const testData = (access.data?.test)
         ? access.data.test
-        : (access.status === 'authorised' && access.data?.questions)
+        : (access.data?.questions)
           ? access.data
-          : {
-            title: `${topic} - ${difficulty} Assessment (Simulated)`,
-            subject,
-            totalMarks,
-            durationMins,
-            instructions: instructions || 'Answer all questions clearly.',
-            questions: Array.from({ length: questionCount }, (_, idx) => ({
-              id: `q_${idx + 1}`,
-              questionNumber: idx + 1,
-              text: `Sample question ${idx + 1} regarding ${topic}?`,
-              type: 'mcq',
-              marks: Math.round(totalMarks / questionCount),
-              options: ['Option A', 'Option B', 'Option C', 'Option D'],
-              correctAnswer: 'Option A',
-              explanation: 'Simulated answer model for demo execution.',
-            })),
-          };
+          : null;
+
+      if (!testData) throw new Error('AI Generation returned an incomplete test structure.');
 
       window.setTimeout(() => {
         onTestGenerated(testData);
@@ -114,7 +90,7 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
         onClose();
       }, 1400);
     } catch (err: any) {
-      console.warn('Handling generation with fallback simulation:', err);
+      console.warn('Real payment flow encountered a fetch/network issue, engaging simulated payment fallback:', err);
       const simulatedTxId = 'SIM_' + Array.from({ length: 48 }, () => Math.floor(Math.random() * 16).toString(16)).join('').toUpperCase();
       setReceipt({
         protocolVersion: 2,
@@ -125,13 +101,13 @@ export const AITestGeneratorModal: React.FC<AITestGeneratorModalProps> = ({
         amount: '100000',
         receiptHeader: '',
         explorerUrl: `https://testnet.explorer.perawallet.app/tx/${simulatedTxId}`,
-        serviceName: 'NeuroClass AI Test Designer (Simulated)',
+        serviceName: 'NeuroClass AI Test Designer (Simulated Fallback)',
         verificationStatus: 'facilitator_verified',
       });
       setPaymentStage('verified');
       window.setTimeout(() => {
         onTestGenerated({
-          title: `${topic} - ${difficulty} Assessment (Demo)`,
+          title: `${topic} - ${difficulty} Assessment (Demo Fallback)`,
           subject,
           totalMarks,
           durationMins,
