@@ -2,42 +2,52 @@ name: NeuroClass CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        node-version: [20.x]
+        node-version: [22.x]
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Set up Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: package-lock.json
 
-    - name: Install Frontend Dependencies & Type Check
-      run: |
-        npm ci
-        npm run lint
+      - name: Install Frontend Dependencies
+        run: npm ci
 
-    - name: Install Backend Dependencies & Build
-      run: |
-        cd backend
-        npm ci
-        npm run build
+      - name: Frontend Type Check
+        run: npm run lint
 
-    - name: Container Build Test
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: false
-        tags: neuroclass:test
+      - name: Frontend Production Build
+        run: npm run build
+
+      - name: Install Backend Dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Backend Type Check
+        working-directory: backend
+        run: npm run typecheck
+
+      - name: Backend Production Build
+        working-directory: backend
+        run: npm run build
+
+      - name: Container Build Test
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: neuroclass:test
